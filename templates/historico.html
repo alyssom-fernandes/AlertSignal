@@ -1,0 +1,43 @@
+{% extends 'layout.html' %}
+{% set active = 'historico' %}
+{% block title %}Histórico{% endblock %}
+{% block page %}
+<div class="pg-head">
+  <h1>Histórico</h1>
+  <div class="sub">// Notificações enviadas e trâmites registrados</div>
+</div>
+
+<div class="hist-list">
+  {% if registros %}
+    {% for r in registros %}
+    <div class="hist-item">
+      <div class="hist-icon" style="background:{{ 'var(--warn-dim)' if r.tipo == 'email_enviado' else 'var(--ok-dim)' }};color:{{ 'var(--warn)' if r.tipo == 'email_enviado' else 'var(--ok)' }}">
+        <i class="ti ti-{{ 'mail' if r.tipo == 'email_enviado' else 'edit' }}"></i>
+      </div>
+      <div class="hist-info">
+        <strong>{{ r.descricao }}</strong>
+        <span>
+          {% if r.empresa_nome %}{{ r.empresa_nome }} · {% endif %}
+          {% if r.usuario_nome %}{{ r.usuario_nome }} · {% endif %}
+          {{ r.criado_em }}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="font-size:13px;color:var(--text2);padding:16px 0">Nenhum evento registrado ainda.</div>
+  {% endif %}
+</div>
+
+{% if total_pages > 1 %}
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:24px">
+  {% if page > 1 %}
+  <a href="{{ url_for('historico', page=page-1) }}" class="btn"><i class="ti ti-chevron-left"></i> Anterior</a>
+  {% endif %}
+  <span style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace">{{ page }} / {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <a href="{{ url_for('historico', page=page+1) }}" class="btn">Próxima <i class="ti ti-chevron-right"></i></a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="app-shell">
+
+  <button class="menu-toggle" onclick="toggleSidebar()"><i class="ti ti-menu-2"></i></button>
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-mark">Z</div>
+      <div>
+        <div class="sb-logo-name">Grupo Zen</div>
+        <div class="sb-logo-sub">AlertSignal</div>
+      </div>
+      <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema"><i class="ti ti-sun"></i></div>
+    </div>
+
+    <div class="sb-nav">
+      <div class="sb-group">Principal</div>
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+        <i class="ti ti-layout-dashboard"></i> Dashboard
+        {% if urgentes_count is defined and urgentes_count > 0 %}<span class="nav-badge">{{ urgentes_count }}</span>{% endif %}
+      </a>
+      <a href="{{ url_for('empresas') }}" class="nav-item {% if active == 'empresas' %}active{% endif %}">
+        <i class="ti ti-building"></i> Empresas
+      </a>
+
+      <div class="sb-group">Gestão</div>
+      <a href="{{ url_for('cadastros') }}" class="nav-item {% if active == 'cadastros' %}active{% endif %}">
+        <i class="ti ti-database"></i> Cadastros
+      </a>
+      <a href="{{ url_for('responsaveis') }}" class="nav-item {% if active == 'responsaveis' %}active{% endif %}">
+        <i class="ti ti-users"></i> Responsáveis
+      </a>
+      <a href="{{ url_for('historico') }}" class="nav-item {% if active == 'historico' %}active{% endif %}">
+        <i class="ti ti-history"></i> Histórico
+      </a>
+
+      {% if session.get('usuario_nivel') == 'admin' %}
+      <div class="sb-group">Sistema</div>
+      <a href="{{ url_for('usuarios') }}" class="nav-item {% if active == 'usuarios' %}active{% endif %}">
+        <i class="ti ti-shield-lock"></i> Usuários
+      </a>
+      <a href="{{ url_for('configuracoes') }}" class="nav-item {% if active == 'configuracoes' %}active{% endif %}">
+        <i class="ti ti-settings"></i> Configurações
+      </a>
+      {% endif %}
+    </div>
+
+    <!-- RODAPÉ DA SIDEBAR — só usuário, sem marca -->
+    <div class="sb-foot">
+      <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;color:var(--text2)">
+        <i class="ti ti-user-circle" style="font-size:14px"></i>
+        <a href="{{ url_for('perfil') }}" style="color:var(--text);font-weight:600">{{ session.get('usuario_nome','') }}</a>
+        <span style="color:var(--text3)">·</span>
+        <a href="{{ url_for('logout') }}" style="color:var(--text3)">Sair</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main-area">
+    <div class="main-scroll">
+      {% with msgs = get_flashed_messages(with_categories=True) %}
+        {% for cat, msg in msgs %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block page %}{% endblock %}
+    </div>
+
+    <!-- RODAPÉ DE PÁGINA — marca AFN SYSTEMS -->
+    <footer class="page-footer">
+      <div class="pf-brand">
+        <span class="pf-afn">AFN</span>
+        <span class="pf-gap"></span>
+        <span class="pf-sys">SYSTEMS</span>
+      </div>
+      <span class="pf-pipe">|</span>
+      <span class="pf-info">AlertSignal</span>
+    </footer>
+  </div>
+
+</div>
+{% block scripts %}{% endblock %}
+{% endblock %}

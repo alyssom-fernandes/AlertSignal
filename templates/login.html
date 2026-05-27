@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r4);padding:40px 32px;width:320px;box-shadow:0 24px 64px rgba(0,0,0,0.5)">
+
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:48px;height:48px;background:var(--acc);border-radius:var(--r2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;margin:0 auto 14px;box-shadow:0 0 20px var(--acc-glow)">Z</div>
+      <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;font-family:'Plus Jakarta Sans',sans-serif">Grupo Zen</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px">AlertSignal</div>
+    </div>
+
+    {% if erro %}<div class="flash erro">{{ erro }}</div>{% endif %}
+
+    <form method="POST">
+      <div style="margin-bottom:13px">
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-weight:700">Usuário</label>
+        <input class="form-input" type="email" name="email" style="width:100%" placeholder="seu@email.com" required autofocus>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-weight:700">Senha</label>
+        <input class="form-input" type="password" name="senha" style="width:100%" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:13px">
+        <i class="ti ti-login"></i> Entrar
+      </button>
+    </form>
+
+    <!-- MARCA AFN SYSTEMS -->
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div style="display:flex;align-items:baseline;gap:0">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:2px;color:#c44a5a;-webkit-text-stroke:0.3px rgba(196,74,90,0.4)">AFN</span>
+        <span style="width:4px;display:inline-block"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.28)">SYSTEMS</span>
+      </div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:rgba(255,255,255,0.28)">by Alyssom Fernandes</span>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

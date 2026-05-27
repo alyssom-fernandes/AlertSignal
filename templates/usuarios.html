@@ -1,0 +1,89 @@
+{% extends 'layout.html' %}
+{% set active = 'usuarios' %}
+{% block title %}Usuários{% endblock %}
+{% block page %}
+<div class="pg-head">
+  <h1>Usuários</h1>
+  <div class="sub">// Acesso e permissões do sistema</div>
+</div>
+
+<div class="form-card" style="margin-bottom:24px">
+  <h3><i class="ti ti-user-plus"></i> Novo usuário</h3>
+  <p>Administradores podem cadastrar, editar e excluir. Visualizadores apenas consultam.</p>
+  <form method="POST" action="{{ url_for('usuario_novo') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+    <div>
+      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
+      <input class="form-input" type="text" name="nome" placeholder="Nome completo" required style="width:180px">
+    </div>
+    <div>
+      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">E-mail</label>
+      <input class="form-input" type="email" name="email" placeholder="email@empresa.com" required style="width:200px">
+    </div>
+    <div>
+      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Senha</label>
+      <input class="form-input" type="password" name="senha" placeholder="Mín. 6 caracteres" required style="width:150px">
+    </div>
+    <div>
+      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nível</label>
+      <select class="form-input" name="nivel" style="width:140px">
+        <option value="visualizador">Visualizador</option>
+        <option value="admin">Administrador</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
+  </form>
+</div>
+
+<div class="sec-head">Usuários cadastrados</div>
+<div class="resp-grid">
+  {% for u in usuarios %}
+  <div class="resp-card" style="flex-direction:column;align-items:flex-start;gap:10px">
+    <div style="display:flex;align-items:center;gap:12px;width:100%">
+      <div class="resp-avatar" style="background:{{ 'var(--acc-dim)' if u.nivel == 'admin' else 'var(--ok-dim)' }};border-color:{{ 'rgba(224,48,48,0.2)' if u.nivel == 'admin' else 'rgba(16,185,129,0.2)' }};color:{{ 'var(--acc2)' if u.nivel == 'admin' else 'var(--ok)' }}">{{ u.nome[0]|upper }}</div>
+      <div style="flex:1">
+        <div class="resp-nome">{{ u.nome }}{% if u.id == session.get('usuario_id') %} <span style="font-size:9px;color:var(--text3);font-weight:400">(você)</span>{% endif %}</div>
+        <div class="resp-email">{{ u.email }}</div>
+        <div style="margin-top:4px"><span class="badge {{ 'badge-danger' if u.nivel == 'admin' else 'badge-ok' }}">{{ u.nivel }}</span></div>
+      </div>
+    </div>
+    {% if u.id != session.get('usuario_id') %}
+    <div style="display:flex;gap:6px;width:100%">
+      <button class="btn" style="font-size:11px;padding:4px 10px;flex:1" onclick="abrirRedefinir({{ u.id }}, '{{ u.nome }}')">
+        <i class="ti ti-lock-open"></i> Redefinir senha
+      </button>
+      <form method="POST" action="/usuarios/{{ u.id }}/excluir" onsubmit="return confirm('Remover {{ u.nome }}?')">
+        <button type="submit" class="btn btn-danger" style="padding:4px 10px;font-size:11px"><i class="ti ti-trash"></i></button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- MODAL REDEFINIR SENHA -->
+<div class="modal-overlay" id="modal-redefinir">
+  <div class="modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3>Redefinir senha — <span id="redefinir-nome" style="color:var(--text2);font-weight:500"></span></h3>
+      <button class="btn" onclick="document.getElementById('modal-redefinir').classList.remove('open')" style="padding:4px 8px"><i class="ti ti-x"></i></button>
+    </div>
+    <form id="form-redefinir" method="POST" style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nova senha</label>
+        <input class="form-input" type="password" name="senha_nova" placeholder="Mínimo 6 caracteres" required style="width:100%">
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-lock-check"></i> Confirmar</button>
+    </form>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+function abrirRedefinir(uid, nome) {
+  document.getElementById('redefinir-nome').textContent = nome;
+  document.getElementById('form-redefinir').action = `/usuarios/${uid}/redefinir-senha`;
+  document.getElementById('modal-redefinir').classList.add('open');
+}
+</script>
+{% endblock %}
+{% endblock %}

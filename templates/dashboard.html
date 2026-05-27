@@ -1,0 +1,63 @@
+{% extends 'layout.html' %}
+{% set active = 'dashboard' %}
+{% block title %}Dashboard{% endblock %}
+{% block page %}
+<div class="pg-head">
+  <h1>Visão Geral</h1>
+  <div class="sub">// {{ hoje }}</div>
+</div>
+
+<div class="sec-head">Resumo de status</div>
+<div class="pill-row" style="margin-bottom:28px">
+  <div class="pill p-danger"><div class="pill-left"><i class="ti ti-alert-triangle"></i> Documentos vencidos</div><span class="pill-num">{{ stats['VENCIDO'] }}</span></div>
+  <div class="pill p-warn"><div class="pill-left"><i class="ti ti-clock-exclamation"></i> A renovar em breve</div><span class="pill-num">{{ stats['RENOVAR'] }}</span></div>
+  <div class="pill p-ok"><div class="pill-left"><i class="ti ti-circle-check"></i> Em dia</div><span class="pill-num">{{ stats['OK'] }}</span></div>
+  <div class="pill p-neutral"><div class="pill-left"><i class="ti ti-building-store"></i> Empresas cadastradas</div><span class="pill-num">{{ total_empresas }}</span></div>
+</div>
+
+<div class="sec-head">Atenção urgente</div>
+{% if urgentes %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;margin-bottom:28px">
+  {% for u in urgentes %}
+  <div class="alert-item {{ 'av' if u.status == 'VENCIDO' else 'rn' }}">
+    <div class="ai-top">
+      <div class="ai-info">
+        <div class="ai-name">{{ u.empresa }}</div>
+        <div class="ai-doc"><i class="ti ti-file-certificate" style="font-size:10px"></i> {{ u.tipo }}</div>
+      </div>
+      {% if u.dias < 0 %}
+        <span class="prazo-badge prazo-danger">Vencido há {{ u.dias|abs }}d</span>
+      {% else %}
+        <span class="prazo-badge prazo-warn">Vence em {{ u.dias }}d</span>
+      {% endif %}
+    </div>
+    <div class="ai-bot">
+      <span class="ai-date">venc. {{ u.vencimento|formatar_data }}</span>
+      <a href="/empresa/{{ u.id }}" style="font-size:10px;color:var(--acc2);font-weight:600">Ver documento →</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div style="font-size:13px;color:var(--text2);padding:12px 0;margin-bottom:28px">Nenhum documento urgente no momento.</div>
+{% endif %}
+
+<div class="sec-head">Histórico recente</div>
+<div class="hist-list">
+  {% if historico %}
+    {% for h in historico %}
+    <div class="hist-item">
+      <div class="hist-icon" style="background:var(--acc-dim);color:var(--acc2)">
+        <i class="ti ti-{{ 'mail' if h.tipo == 'email_enviado' else 'edit' }}"></i>
+      </div>
+      <div class="hist-info">
+        <strong>{{ h.descricao }}</strong>
+        <span>{{ h.criado_em }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="font-size:13px;color:var(--text2);padding:12px 0">Nenhum evento registrado ainda.</div>
+  {% endif %}
+</div>
+{% endblock %}

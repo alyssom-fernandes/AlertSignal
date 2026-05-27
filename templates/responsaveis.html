@@ -1,0 +1,43 @@
+{% extends 'layout.html' %}
+{% set active = 'responsaveis' %}
+{% block title %}Responsáveis{% endblock %}
+{% block page %}
+<div class="pg-head">
+  <h1>Responsáveis</h1>
+  <div class="sub">// Pessoas que recebem notificações de vencimento</div>
+</div>
+<div class="form-card" style="margin-bottom:24px">
+  <h3><i class="ti ti-user-plus"></i> Novo responsável</h3>
+  <p>Cadastre as pessoas que devem receber os alertas de vencimento por e-mail.</p>
+  <form method="POST" action="{{ url_for('responsavel_novo') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+    <div>
+      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
+      <input class="form-input" type="text" name="nome" placeholder="Nome completo" required style="width:200px">
+    </div>
+    <div>
+      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">E-mail</label>
+      <input class="form-input" type="email" name="email" placeholder="email@empresa.com" required style="width:220px">
+    </div>
+    <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
+  </form>
+</div>
+<div class="sec-head">Cadastrados</div>
+{% if responsaveis %}
+<div class="resp-grid">
+  {% for r in responsaveis %}
+  <div class="resp-card">
+    <div class="resp-avatar">{{ r.nome[0]|upper }}</div>
+    <div style="flex:1">
+      <div class="resp-nome">{{ r.nome }}</div>
+      <div class="resp-email">{{ r.email }}</div>
+    </div>
+    <form method="POST" action="/responsaveis/{{ r.id }}/excluir" onsubmit="return confirm('Remover {{ r.nome }}?')">
+      <button type="submit" class="btn btn-danger" style="padding:4px 8px;font-size:11px"><i class="ti ti-trash"></i></button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div style="font-size:13px;color:var(--text2);padding:16px 0">Nenhum responsável cadastrado ainda.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'layout.html' %}
+{% set active = 'configuracoes' %}
+{% block title %}Configurações{% endblock %}
+{% block page %}
+<div class="pg-head">
+  <h1>Configurações</h1>
+  <div class="sub">// E-mail de envio e regras de notificação</div>
+</div>
+<form method="POST">
+  <div class="form-card">
+    <h3><i class="ti ti-mail"></i> Conta de envio</h3>
+    <p>Use um Gmail. Acesse <strong>myaccount.google.com → Segurança → Senhas de app</strong> para gerar a senha específica.</p>
+    <div class="form-row">
+      <div class="form-lbl">E-mail remetente<small>Conta Gmail que enviará os alertas</small></div>
+      <input class="form-input" type="email" name="email_remetente" value="{{ cfg.email_remetente }}" placeholder="alertas@gmail.com" style="width:240px">
+    </div>
+    <div class="form-row">
+      <div class="form-lbl">Senha de App<small>Gerada no painel Google — 16 caracteres</small></div>
+      <input class="form-input" type="password" name="email_senha_app" placeholder="Deixe em branco para manter" style="width:240px">
+    </div>
+    <div class="form-row">
+      <div class="form-lbl">Horário de envio diário<small>O sistema verifica e envia todo dia neste horário</small></div>
+      <input class="form-input" type="time" name="horario_envio" value="{{ cfg.horario_envio }}" style="width:120px">
+    </div>
+    <div class="form-row" style="border:none;padding-bottom:0">
+      <div class="form-lbl">Testar configuração<small>Envia um e-mail de teste para sua conta</small></div>
+      <button type="button" class="btn" id="btn-teste" onclick="testarEmail()"><i class="ti ti-send"></i> Enviar teste</button>
+    </div>
+  </div>
+  <div class="form-card">
+    <h3><i class="ti ti-bell"></i> Regras de alerta</h3>
+    <p>Quantos dias antes do vencimento cada nível de notificação é disparado.</p>
+    <div class="form-row">
+      <div class="form-lbl">Alerta antecipado<small>Aviso inicial com bastante antecedência</small></div>
+      <div style="display:flex;align-items:center;gap:8px"><input class="form-input" type="number" name="alerta_dias_90" value="{{ cfg.alerta_dias_90 }}" min="1" style="width:80px"><span style="font-size:11px;color:var(--text2)">dias antes</span></div>
+    </div>
+    <div class="form-row">
+      <div class="form-lbl">Alerta de renovação<small>Hora de iniciar o processo de renovação</small></div>
+      <div style="display:flex;align-items:center;gap:8px"><input class="form-input" type="number" name="alerta_dias_30" value="{{ cfg.alerta_dias_30 }}" min="1" style="width:80px"><span style="font-size:11px;color:var(--text2)">dias antes</span></div>
+    </div>
+    <div class="form-row">
+      <div class="form-lbl">Alerta crítico<small>Vencimento iminente — urgência máxima</small></div>
+      <div style="display:flex;align-items:center;gap:8px"><input class="form-input" type="number" name="alerta_dias_7" value="{{ cfg.alerta_dias_7 }}" min="1" style="width:80px"><span style="font-size:11px;color:var(--text2)">dias antes</span></div>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy"></i> Salvar configurações</button>
+</form>
+<div id="msg-teste" style="display:none;margin-top:12px;font-size:13px"></div>
+{% block scripts %}
+<script>
+async function testarEmail() {
+  const btn = document.getElementById('btn-teste');
+  const msg = document.getElementById('msg-teste');
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> Enviando...';
+  const res = await fetch('/api/testar-email', {method:'POST'});
+  const data = await res.json();
+  btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Enviar teste';
+  msg.style.display = 'block';
+  if (data.ok) { msg.style.color='var(--ok)'; msg.textContent='E-mail de teste enviado com sucesso.'; showToast('E-mail enviado!'); }
+  else { msg.style.color='var(--danger)'; msg.textContent='Falha no envio. Verifique as configurações.'; showToast('Falha no envio','erro'); }
+}
+</script>
+{% endblock %}
+{% endblock %}

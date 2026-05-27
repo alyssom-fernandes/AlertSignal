@@ -1,0 +1,181 @@
+{% extends 'layout.html' %}
+{% set active = 'cadastros' %}
+{% block title %}Cadastros{% endblock %}
+{% block page %}
+<div class="pg-head">
+  <h1>Cadastros</h1>
+  <div class="sub">// Empresas, categorias e documentos</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="mudarTab(this,'tab-empresas')">Empresas</div>
+  <div class="tab" onclick="mudarTab(this,'tab-categorias')">Categorias</div>
+  <div class="tab" onclick="mudarTab(this,'tab-documentos')">Documentos</div>
+  <div class="tab" onclick="mudarTab(this,'tab-inativos')">Inativos</div>
+</div>
+
+<!-- EMPRESAS -->
+<div id="tab-empresas" class="tab-panel">
+  <div class="form-card" style="margin-bottom:20px">
+    <h3><i class="ti ti-building-plus"></i> Nova empresa</h3>
+    <form method="POST" action="{{ url_for('empresa_nova') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
+        <input class="form-input" type="text" name="nome" placeholder="Razão social" required style="width:220px">
+      </div>
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">CNPJ</label>
+        <input class="form-input" type="text" name="cnpj" placeholder="00.000.000/0000-00" style="width:180px">
+      </div>
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Categoria</label>
+        <select class="form-input" name="categoria_id" required style="width:160px">
+          <option value="">— selecione —</option>
+          {% for cat in categorias %}
+          <option value="{{ cat.id }}">{{ cat.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
+    </form>
+  </div>
+
+  <div class="sec-head">Empresas ativas ({{ empresas_ativas|length }})</div>
+  <table class="doc-table">
+    <thead><tr><th>Nome</th><th>CNPJ</th><th>Categoria</th><th>Documentos</th><th></th></tr></thead>
+    <tbody>
+      {% for emp in empresas_ativas %}
+      <tr>
+        <td class="doc-name">{{ emp.nome }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)">{{ emp.cnpj or '—' }}</td>
+        <td><span class="badge badge-none">{{ emp.categoria_nome }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">{{ emp.total_docs }} doc(s)</td>
+        <td style="white-space:nowrap">
+          <a href="/empresa/{{ emp.id }}" class="btn" style="font-size:11px;padding:4px 10px;margin-right:4px"><i class="ti ti-eye"></i></a>
+          <form method="POST" action="/empresa/{{ emp.id }}/inativar" style="display:inline" onsubmit="return confirm('Inativar {{ emp.nome }}?')">
+            <button type="submit" class="btn btn-warn" style="font-size:11px;padding:4px 10px;margin-right:4px"><i class="ti ti-eye-off"></i></button>
+          </form>
+          {% if emp.total_docs == 0 %}
+          <form method="POST" action="/empresa/{{ emp.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir permanentemente {{ emp.nome }}?')">
+            <button type="submit" class="btn btn-danger" style="font-size:11px;padding:4px 10px"><i class="ti ti-trash"></i></button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- CATEGORIAS -->
+<div id="tab-categorias" class="tab-panel" style="display:none">
+  <div class="form-card" style="margin-bottom:20px">
+    <h3><i class="ti ti-tag"></i> Nova categoria</h3>
+    <form method="POST" action="{{ url_for('categoria_nova') }}" style="display:flex;gap:10px;align-items:flex-end">
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
+        <input class="form-input" type="text" name="nome" placeholder="Ex: Postos, Restaurantes..." required style="width:240px">
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
+    </form>
+  </div>
+  <div class="sec-head">Categorias ({{ categorias|length }})</div>
+  <table class="doc-table">
+    <thead><tr><th>Nome</th><th>Empresas</th><th></th></tr></thead>
+    <tbody>
+      {% for cat in categorias %}
+      <tr>
+        <td class="doc-name">{{ cat.nome }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">{{ cat.total_empresas }}</td>
+        <td>
+          {% if cat.total_empresas == 0 %}
+          <form method="POST" action="/categoria/{{ cat.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir categoria {{ cat.nome }}?')">
+            <button type="submit" class="btn btn-danger" style="font-size:11px;padding:4px 10px"><i class="ti ti-trash"></i></button>
+          </form>
+          {% else %}
+          <span style="font-size:11px;color:var(--text3)">Em uso</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- DOCUMENTOS -->
+<div id="tab-documentos" class="tab-panel" style="display:none">
+  <div class="form-card" style="margin-bottom:20px">
+    <h3><i class="ti ti-file-plus"></i> Novo documento</h3>
+    <form method="POST" action="{{ url_for('documento_novo') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Empresa</label>
+        <select class="form-input" name="empresa_id" required style="width:200px">
+          <option value="">— selecione —</option>
+          {% for emp in empresas_ativas %}
+          <option value="{{ emp.id }}">{{ emp.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Tipo</label>
+        <select class="form-input" name="tipo" required style="width:200px">
+          <option value="">— selecione —</option>
+          {% for tipo in tipos_doc %}
+          <option value="{{ tipo }}">{{ tipo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Protocolo</label>
+        <input class="form-input" type="text" name="protocolo" placeholder="Opcional" style="width:140px">
+      </div>
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Vencimento</label>
+        <input class="form-input" type="date" name="vencimento" style="width:150px">
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
+    </form>
+  </div>
+  <div style="font-size:12px;color:var(--text2);padding:8px 0">Gerencie os documentos de cada empresa acessando a página da empresa.</div>
+</div>
+
+<!-- INATIVOS -->
+<div id="tab-inativos" class="tab-panel" style="display:none">
+  <div class="sec-head">Empresas inativas ({{ empresas_inativas|length }})</div>
+  {% if empresas_inativas %}
+  <table class="doc-table">
+    <thead><tr><th>Nome</th><th>CNPJ</th><th>Categoria</th><th></th></tr></thead>
+    <tbody>
+      {% for emp in empresas_inativas %}
+      <tr>
+        <td class="doc-name" style="color:var(--text2)">{{ emp.nome }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">{{ emp.cnpj or '—' }}</td>
+        <td><span class="badge badge-none">{{ emp.categoria_nome }}</span></td>
+        <td style="white-space:nowrap">
+          <form method="POST" action="/empresa/{{ emp.id }}/reativar" style="display:inline">
+            <button type="submit" class="btn" style="font-size:11px;padding:4px 10px;margin-right:4px"><i class="ti ti-eye"></i> Reativar</button>
+          </form>
+          <form method="POST" action="/empresa/{{ emp.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir permanentemente?')">
+            <button type="submit" class="btn btn-danger" style="font-size:11px;padding:4px 10px"><i class="ti ti-trash"></i></button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="font-size:13px;color:var(--text2);padding:12px 0">Nenhuma empresa inativa.</div>
+  {% endif %}
+</div>
+
+{% block scripts %}
+<script>
+function mudarTab(el, painelId) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.style.display='none');
+  el.classList.add('active');
+  document.getElementById(painelId).style.display='';
+}
+</script>
+{% endblock %}
+{% endblock %}

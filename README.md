@@ -1,101 +1,143 @@
-# DeepChat — Cross-Validation AI Chat
+# AlertSignal
 
-A browser-based chat interface that queries **DeepSeek** for answers and uses **ChatGPT as a critical reviewer** — no backend, no server, no installation required.
+**Document expiration monitoring and automated email alerting system.**
 
-The idea is simple: instead of trusting a single AI model, every response goes through a second model that evaluates it for accuracy, highlights strengths, points out gaps, and suggests improvements.
+AlertSignal is a local web application that tracks business licenses, permits, and regulatory documents — automatically notifying responsible parties before deadlines are missed.
 
----
-
-## How it works
-
-When you send a message:
-
-1. DeepSeek generates a detailed response
-2. ChatGPT receives both the question and DeepSeek's answer, then produces a structured critical review covering factual accuracy, strong points, areas for improvement, and a revised version when necessary
-
-There is also an **inverted mode** where ChatGPT responds first and DeepSeek acts as the reviewer.
-
----
-
-## Getting started
-
-You will need API keys from both platforms. Both offer free tiers suitable for testing.
-
-**DeepSeek**
-1. Create an account at [platform.deepseek.com](https://platform.deepseek.com)
-2. Go to **API Keys** and generate a new key
-
-**OpenAI**
-1. Create an account at [platform.openai.com](https://platform.openai.com)
-2. Go to **API Keys** and generate a new secret key
-
-Once you have both keys, open `index.html` in your browser or access the live demo, enter your credentials, and start chatting.
-
-No build step, no package manager, no dependencies.
-
----
-
-## Privacy
-
-All credentials are stored exclusively in your browser's `localStorage`. No data is sent to any server other than DeepSeek's and OpenAI's own APIs. The application has no analytics, no telemetry, and no external requests beyond the AI calls you explicitly trigger.
-
-> Note: if you share your device or browser profile, clear your localStorage before doing so.
+Built as a real-world replacement for a manually maintained spreadsheet used across a multi-company group, AlertSignal introduces automated alerts, multi-stakeholder notification, and a full audit trail without requiring any cloud infrastructure.
 
 ---
 
 ## Features
 
-- Dual-model validation with structured review format
-- Inverted mode (ChatGPT responds, DeepSeek reviews)
-- Conversation history stored locally with search
-- Export conversation as Markdown
-- File attachments: images, plain text, CSV, Markdown (up to 5 MB)
-- Regenerate responses without restarting the conversation
-- Reply to specific messages
-- Model selector (GPT-4o-mini / GPT-4o)
-- Request cancellation with timeout handling
-- Offline detection
-- Mobile-friendly with long-press context menu
+- **Automated email alerts** — daily checks at a configurable time; notifications sent at 90, 30, and 7 days before expiration, plus ongoing reminders for already-expired documents
+- **Multi-company support** — companies organized by category (gas stations, restaurants, holdings, etc.) with per-company document tracking
+- **Multiple assignees per document** — each document can have more than one responsible party, reducing the risk of missed alerts
+- **Inline protocol editing** — update protocol numbers directly in the document table without navigating away
+- **Full history log** — every sent notification and registered transaction is recorded with timestamp
+- **Configurable rules** — alert thresholds and send time adjustable through the UI, no code changes needed
+- **Excel import** — existing spreadsheet data is automatically imported on first run
+- **Login-protected** — session-based authentication keeps data access controlled
 
 ---
 
-## Project structure
+## Tech Stack
 
-```
-deepchat/
-├── index.html        # Markup and layout
-├── css/
-│   └── style.css     # All styles
-└── js/
-    ├── api.js        # API communication (DeepSeek and OpenAI)
-    └── app.js        # Application logic, state and UI
-```
-
-Built with plain HTML, CSS, and JavaScript. No frameworks, no dependencies.
-
----
-
-## Estimated cost per conversation
-
-| Model | Cost per question + review |
+| Layer | Technology |
 |---|---|
-| GPT-4o-mini (default) | ~$0.001 |
-| GPT-4o | ~$0.005 |
-| DeepSeek | ~$0.0001 |
-
-Figures are approximate. Check current pricing on each platform.
+| Backend | Python 3 + Flask |
+| Database | SQLite (single file, zero config) |
+| Scheduler | APScheduler |
+| Email | smtplib + Gmail SMTP over SSL |
+| Frontend | Jinja2 templates + vanilla JS |
+| Fonts | Space Grotesk (Google Fonts) |
+| Icons | Tabler Icons |
+| Data import | pandas + openpyxl |
 
 ---
 
-## Roadmap
+## Project Structure
 
-- Streaming responses
-- Support for additional models (Claude, Gemini)
-- Light theme
-- PWA support
+```
+alertsignal/
+├── app.py                  # Flask server — all routes and business logic
+├── database.py             # SQLite schema and connection helpers
+├── importar_planilha.py    # One-time Excel importer
+├── notificacoes.py         # Alert logic and email dispatch
+├── INICIAR.bat             # Windows launcher (double-click to run)
+├── static/
+│   ├── img/logo.png
+│   └── js/app.js
+└── templates/
+    ├── base.html           # Global styles and variables
+    ├── layout.html         # Sidebar layout (inherited by inner pages)
+    ├── login.html
+    ├── dashboard.html
+    ├── empresas.html
+    ├── empresa_detalhe.html
+    ├── responsaveis.html
+    ├── historico.html
+    └── configuracoes.html
+```
+
+---
+
+## Getting Started
+
+### Requirements
+
+- Python 3.8 or higher
+- Internet connection on first run (to install dependencies)
+
+### Installation
+
+1. Download and extract the project folder
+2. Place your `ALVARAS_GRUPO_ZEN.xlsx` file inside the project folder
+3. On Windows, double-click `INICIAR.bat`
+
+The launcher installs all dependencies, starts the server, and opens the browser automatically.
+
+### Manual start (any OS)
+
+```bash
+pip install flask apscheduler openpyxl pandas werkzeug
+python app.py
+```
+
+Then open `http://localhost:5000` in your browser.
+
+### Default credentials
+
+```
+Email:    admin@grupozen.com.br
+Password: zen2024
+```
+
+Change the password after first login.
+
+---
+
+## Email Configuration
+
+AlertSignal sends alerts through a Gmail account using an App Password — a separate credential generated by Google that does not expose your main account password.
+
+**Steps to configure:**
+
+1. Go to [myaccount.google.com](https://myaccount.google.com) → Security → 2-Step Verification (must be enabled)
+2. Search for **App passwords** → create one named "AlertSignal"
+3. Copy the 16-character password
+4. In AlertSignal, go to **Settings** and fill in the Gmail address and the App Password
+5. Use the **Send test** button to verify the configuration
+
+---
+
+## Database Schema
+
+```
+usuarios              — system users (login)
+categorias            — company categories (Postos, Restaurantes, etc.)
+empresas              — companies with CNPJ and category
+documentos            — documents per company (type, protocol, expiration, status)
+responsaveis          — people who receive notifications
+documento_responsavel — N:N link between documents and assignees
+historico             — audit log of alerts sent and transactions
+configuracoes         — key/value settings store
+```
+
+---
+
+## Screenshots
+
+> Dashboard, company list, document detail, and settings screens follow the Obsidian + Red dark theme using Space Grotesk typography throughout.
 
 ---
 
 ## License
 
-MIT
+Private use. Built for Grupo Zen internal operations.
+
+---
+
+## Author
+
+Developed with Python — first Python project, built to solve a real operational problem and demonstrate full-stack capability across backend logic, database design, scheduled tasks, and email automation.

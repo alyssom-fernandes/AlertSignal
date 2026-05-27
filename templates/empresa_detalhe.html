@@ -1,0 +1,239 @@
+{% extends 'layout.html' %}
+{% set active = 'empresas' %}
+{% block title %}{{ empresa.nome }}{% endblock %}
+{% block page %}
+<a class="back" href="{{ url_for('empresas') }}"><i class="ti ti-arrow-left"></i> Voltar — {{ empresa.categoria }}</a>
+<div class="pg-head" style="display:flex;align-items:flex-start;justify-content:space-between">
+  <div>
+    <h1>{{ empresa.nome }}</h1>
+    <div class="sub">// CNPJ {{ empresa.cnpj or '—' }}</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{{ url_for('exportar') }}" class="btn" title="Exportar CSV"><i class="ti ti-download"></i> Exportar</a>
+  </div>
+</div>
+
+<div class="sec-head">Documentos</div>
+
+<!-- BUSCA -->
+<div style="margin-bottom:14px">
+  <input class="form-input" type="text" id="busca-doc" placeholder="Buscar documento..." style="width:260px" oninput="filtrarDocs()">
+</div>
+
+<table class="doc-table" id="tabela-docs">
+  <thead>
+    <tr>
+      <th>Documento</th><th>Protocolo</th><th>Vencimento</th><th>Dias</th><th>Status</th><th>Observações</th><th>Responsáveis</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for doc in documentos %}
+    <tr class="doc-row" data-tipo="{{ doc.tipo|lower }}">
+      <td class="doc-name">{{ doc.tipo }}</td>
+      <td>
+        <span class="proto-txt" data-id="{{ doc.id }}" style="color:var(--text2);cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px" onclick="editarProtocolo(this)" title="Clique para editar">{{ doc.protocolo or '—' }}</span>
+      </td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ doc.vencimento|formatar_data }}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:{% if doc.dias is none %}var(--text3){% elif doc.dias < 0 %}var(--danger){% elif doc.dias <= 7 %}var(--danger){% elif doc.dias <= 30 %}var(--warn){% else %}var(--ok){% endif %}">{{ doc.dias|dias_texto }}</td>
+      <td><span class="badge badge-{{ doc.status|status_classe }}">{{ doc.status }}</span></td>
+      <td style="max-width:180px;font-size:11px;color:var(--text2)">{{ doc.observacoes or '—' }}</td>
+      <td>
+        <div class="resp-chips" id="chips-{{ doc.id }}">
+          {% for r in doc.responsaveis %}
+          <div class="resp-chip" data-resp-id="{{ r.id }}">{{ r.nome }}<span class="remove" onclick="removerResp({{ doc.id }}, {{ r.id }}, this)"><i class="ti ti-x"></i></span></div>
+          {% endfor %}
+        </div>
+      </td>
+      <td style="white-space:nowrap">
+        <button class="btn" style="font-size:11px;padding:4px 8px;margin-bottom:2px" onclick="abrirModalResp({{ doc.id }}, '{{ doc.tipo }}')" title="Responsáveis"><i class="ti ti-user-plus"></i></button>
+        <button class="btn" style="font-size:11px;padding:4px 8px;margin-bottom:2px" onclick="abrirModalEditar({{ doc.id }}, '{{ doc.tipo }}', '{{ doc.vencimento or '' }}', '{{ doc.protocolo or '' }}', {{ doc.observacoes|tojson if doc.observacoes else '\"\"' }})" title="Editar"><i class="ti ti-edit"></i></button>
+        {% if doc.status in ['VENCIDO','RENOVAR'] %}
+        <button class="btn btn-warn" style="font-size:11px;padding:4px 8px;margin-bottom:2px" onclick="abrirModalRenovar({{ doc.id }}, '{{ doc.tipo }}')" title="Renovar"><i class="ti ti-refresh"></i></button>
+        <button class="btn" style="font-size:11px;padding:4px 8px;margin-bottom:2px;border-color:var(--line2)" onclick="reenviarAlerta({{ doc.id }})" title="Reenviar alerta"><i class="ti ti-mail-forward"></i></button>
+        {% endif %}
+        <button class="btn btn-danger" style="font-size:11px;padding:4px 8px" onclick="excluirDoc({{ doc.id }}, '{{ doc.tipo }}')" title="Excluir"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- MODAL RESPONSÁVEL -->
+<div class="modal-overlay" id="modal-resp">
+  <div class="modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div><h3>Adicionar responsável</h3><div class="sub" id="modal-resp-sub"></div></div>
+      <button class="btn" onclick="fecharModal('modal-resp')" style="padding:4px 8px"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <select class="form-input" id="sel-resp" style="flex:1">
+        <option value="">— escolha —</option>
+        {% for r in todos_responsaveis %}
+        <option value="{{ r.id }}" data-nome="{{ r.nome }}">{{ r.nome }} — {{ r.email }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" onclick="vincularResp()"><i class="ti ti-plus"></i> Adicionar</button>
+    </div>
+    {% if not todos_responsaveis %}
+    <div style="font-size:12px;color:var(--text2);margin-top:12px">Nenhum responsável cadastrado. <a href="{{ url_for('responsaveis') }}" style="color:var(--acc2)">Cadastrar</a>.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- MODAL EDITAR -->
+<div class="modal-overlay" id="modal-editar">
+  <div class="modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div><h3>Editar documento</h3><div class="sub" id="modal-editar-sub"></div></div>
+      <button class="btn" onclick="fecharModal('modal-editar')" style="padding:4px 8px"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="edit-doc-id">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Protocolo</label>
+        <input class="form-input" type="text" id="edit-protocolo" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Vencimento</label>
+        <input class="form-input" type="date" id="edit-vencimento" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Observações</label>
+        <textarea class="form-input" id="edit-obs" rows="3" style="width:100%;resize:vertical"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="salvarEdicao()"><i class="ti ti-device-floppy"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RENOVAR -->
+<div class="modal-overlay" id="modal-renovar">
+  <div class="modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div><h3>Marcar como renovado</h3><div class="sub" id="modal-renovar-sub"></div></div>
+      <button class="btn" onclick="fecharModal('modal-renovar')" style="padding:4px 8px"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="renovar-doc-id">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nova data de vencimento</label>
+        <input class="form-input" type="date" id="renovar-vencimento" style="width:100%">
+      </div>
+      <button class="btn btn-primary" onclick="confirmarRenovacao()"><i class="ti ti-check"></i> Confirmar renovação</button>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+let docAtual = null;
+
+function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function abrirModalResp(docId, docTipo) {
+  docAtual = docId;
+  document.getElementById('modal-resp-sub').textContent = docTipo;
+  document.getElementById('modal-resp').classList.add('open');
+}
+
+function abrirModalEditar(docId, docTipo, vencimento, protocolo, obs) {
+  document.getElementById('edit-doc-id').value = docId;
+  document.getElementById('modal-editar-sub').textContent = docTipo;
+  document.getElementById('edit-protocolo').value = protocolo;
+  document.getElementById('edit-vencimento').value = vencimento;
+  document.getElementById('edit-obs').value = obs || '';
+  document.getElementById('modal-editar').classList.add('open');
+}
+
+function abrirModalRenovar(docId, docTipo) {
+  document.getElementById('renovar-doc-id').value = docId;
+  document.getElementById('modal-renovar-sub').textContent = docTipo;
+  document.getElementById('modal-renovar').classList.add('open');
+}
+
+async function vincularResp() {
+  const sel = document.getElementById('sel-resp');
+  const respId = sel.value;
+  const nome = sel.options[sel.selectedIndex]?.dataset.nome;
+  if (!respId) return;
+  const res = await fetch(`/api/doc/${docAtual}/responsavel`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({responsavel_id:parseInt(respId)})});
+  const data = await res.json();
+  if (data.ok) {
+    const chips = document.getElementById(`chips-${docAtual}`);
+    const chip = document.createElement('div');
+    chip.className='resp-chip'; chip.dataset.respId=respId;
+    chip.innerHTML=`${nome}<span class="remove" onclick="removerResp(${docAtual},${respId},this)"><i class="ti ti-x"></i></span>`;
+    chips.appendChild(chip);
+    fecharModal('modal-resp');
+    showToast('Responsável adicionado');
+  }
+}
+
+async function removerResp(docId, respId, el) {
+  const res = await fetch(`/api/doc/${docId}/responsavel/${respId}`, {method:'DELETE'});
+  const data = await res.json();
+  if (data.ok) { el.closest('.resp-chip').remove(); showToast('Responsável removido'); }
+}
+
+async function salvarEdicao() {
+  const docId = document.getElementById('edit-doc-id').value;
+  const res = await fetch(`/api/doc/${docId}/editar`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({protocolo:document.getElementById('edit-protocolo').value.trim(),vencimento:document.getElementById('edit-vencimento').value,observacoes:document.getElementById('edit-obs').value.trim()})});
+  const data = await res.json();
+  if (data.ok) { fecharModal('modal-editar'); showToast('Documento atualizado'); setTimeout(()=>location.reload(),800); }
+}
+
+async function confirmarRenovacao() {
+  const docId = document.getElementById('renovar-doc-id').value;
+  const venc = document.getElementById('renovar-vencimento').value;
+  if (!venc) { showToast('Informe a nova data','erro'); return; }
+  const res = await fetch(`/api/doc/${docId}/renovar`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vencimento:venc})});
+  const data = await res.json();
+  if (data.ok) { fecharModal('modal-renovar'); showToast('Documento renovado'); setTimeout(()=>location.reload(),800); }
+}
+
+async function excluirDoc(docId, tipo) {
+  if (!confirm(`Excluir "${tipo}"? Esta ação não pode ser desfeita.`)) return;
+  const res = await fetch(`/api/doc/${docId}/excluir`, {method:'DELETE'});
+  const data = await res.json();
+  if (data.ok) { showToast('Documento excluído'); setTimeout(()=>location.reload(),800); }
+  else showToast(data.erro||'Erro ao excluir','erro');
+}
+
+async function reenviarAlerta(docId) {
+  showToast('Enviando alerta...','info');
+  const res = await fetch(`/api/doc/${docId}/reenviar-alerta`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) showToast('Alerta enviado com sucesso');
+  else showToast(data.erro||'Erro ao enviar','erro');
+}
+
+function editarProtocolo(el) {
+  const docId = el.dataset.id;
+  const atual = el.textContent.trim()==='—' ? '' : el.textContent.trim();
+  const input = document.createElement('input');
+  input.className='form-input'; input.value=atual;
+  input.style.cssText='width:120px;padding:3px 7px;font-family:JetBrains Mono,monospace;font-size:11px';
+  el.replaceWith(input); input.focus();
+  async function salvar() {
+    const novo = input.value.trim();
+    await fetch(`/api/doc/${docId}/protocolo`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({protocolo:novo})});
+    const span = document.createElement('span');
+    span.className='proto-txt'; span.dataset.id=docId;
+    span.style.cssText='color:var(--text2);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:11px';
+    span.title='Clique para editar'; span.textContent=novo||'—';
+    span.onclick=function(){editarProtocolo(this)};
+    input.replaceWith(span); showToast('Protocolo atualizado');
+  }
+  input.addEventListener('blur',salvar);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur()});
+}
+
+function filtrarDocs() {
+  const q = document.getElementById('busca-doc').value.toLowerCase();
+  document.querySelectorAll('.doc-row').forEach(row => {
+    row.style.display = row.dataset.tipo.includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
+{% endblock %}

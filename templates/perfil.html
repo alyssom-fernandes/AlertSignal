@@ -1,0 +1,56 @@
+{% extends 'layout.html' %}
+{% set active = '' %}
+{% block title %}Meu Perfil{% endblock %}
+{% block page %}
+<div class="pg-head">
+  <h1>Meu Perfil</h1>
+  <div class="sub">// {{ usuario.email }}</div>
+</div>
+
+{% if erro %}<div class="flash erro">{{ erro }}</div>{% endif %}
+{% if ok %}<div class="flash ok">{{ ok }}</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+  <div class="form-card">
+    <h3><i class="ti ti-user"></i> Dados pessoais</h3>
+    <p>Atualize seu nome de exibição no sistema.</p>
+    <form method="POST">
+      <input type="hidden" name="acao" value="nome">
+      <div style="margin-bottom:12px">
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
+        <input class="form-input" type="text" name="nome" value="{{ usuario.nome }}" required style="width:100%">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nível de acesso</label>
+        <div style="font-size:12px;padding:8px 11px;background:var(--bg);border:1px solid var(--line2);border-radius:var(--r);color:var(--text2)">
+          <span class="badge {{ 'badge-danger' if usuario.nivel == 'admin' else 'badge-ok' }}">{{ usuario.nivel }}</span>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy"></i> Salvar nome</button>
+    </form>
+  </div>
+
+  <div class="form-card">
+    <h3><i class="ti ti-lock"></i> Alterar senha</h3>
+    <p>Use uma senha com pelo menos 6 caracteres.</p>
+    <form method="POST">
+      <input type="hidden" name="acao" value="senha">
+      <div style="margin-bottom:12px">
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Senha atual</label>
+        <input class="form-input" type="password" name="senha_atual" required style="width:100%">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nova senha</label>
+        <input class="form-input" type="password" name="senha_nova" required style="width:100%">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Confirmar nova senha</label>
+        <input class="form-input" type="password" name="senha_conf" required style="width:100%">
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-lock-check"></i> Alterar senha</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
