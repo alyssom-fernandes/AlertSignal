@@ -2,12 +2,18 @@
 {% block title %}Login{% endblock %}
 {% block content %}
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)">
-  <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r4);padding:40px 32px;width:320px;box-shadow:0 24px 64px rgba(0,0,0,0.5)">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r4);padding:40px 32px;width:340px;box-shadow:0 24px 64px rgba(0,0,0,0.5)">
 
+    <!-- LOGO ESTENDIDA -->
     <div style="text-align:center;margin-bottom:28px">
-      <div style="width:48px;height:48px;background:var(--acc);border-radius:var(--r2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;margin:0 auto 14px;box-shadow:0 0 20px var(--acc-glow)">Z</div>
-      <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;font-family:'Plus Jakarta Sans',sans-serif">Grupo Zen</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px">AlertSignal</div>
+      <img
+        src="{{ url_for('static', filename='img/logo.png') }}"
+        alt="AlertSignal"
+        style="height:48px;width:auto;max-width:100%;object-fit:contain;margin-bottom:10px"
+      >
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px">
+        Controle de documentos
+      </div>
     </div>
 
     {% if erro %}<div class="flash erro">{{ erro }}</div>{% endif %}

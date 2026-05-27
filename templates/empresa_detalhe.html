@@ -6,7 +6,7 @@
 <div class="pg-head" style="display:flex;align-items:flex-start;justify-content:space-between">
   <div>
     <h1>{{ empresa.nome }}</h1>
-    <div class="sub">// CNPJ {{ empresa.cnpj or '—' }}</div>
+    <div class="sub">CNPJ {{ empresa.cnpj or '—' }}</div>
   </div>
   <div style="display:flex;gap:8px">
     <a href="{{ url_for('exportar') }}" class="btn" title="Exportar CSV"><i class="ti ti-download"></i> Exportar</a>

@@ -2,62 +2,111 @@
 {% block content %}
 <div class="app-shell">
 
-  <button class="menu-toggle" onclick="toggleSidebar()"><i class="ti ti-menu-2"></i></button>
+  <!-- Botão mobile -->
+  <button class="mobile-menu-btn" onclick="abrirSidebarMobile()">
+    <i class="ti ti-menu-2"></i>
+  </button>
 
   <nav class="sidebar" id="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-mark">Z</div>
-      <div>
-        <div class="sb-logo-name">Grupo Zen</div>
-        <div class="sb-logo-sub">AlertSignal</div>
+
+    <!-- CABEÇALHO: botão colapsar no topo, logo abaixo -->
+    <div class="sb-header">
+      <div class="sb-toggle-btn" onclick="toggleSidebar()" title="Recolher menu">
+        <i class="ti ti-chevron-left"></i>
       </div>
-      <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema"><i class="ti ti-sun"></i></div>
+      <img src="{{ url_for('static', filename='img/logo.png') }}"
+           alt="AlertSignal" class="sb-logo-full">
+      <img src="{{ url_for('static', filename='favicon-512.png') }}"
+           alt="AlertSignal" class="sb-logo-icon">
     </div>
 
+    <!-- NAVEGAÇÃO -->
     <div class="sb-nav">
       <div class="sb-group">Principal</div>
-      <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
-        <i class="ti ti-layout-dashboard"></i> Dashboard
-        {% if urgentes_count is defined and urgentes_count > 0 %}<span class="nav-badge">{{ urgentes_count }}</span>{% endif %}
+      <a href="{{ url_for('dashboard') }}"
+         class="nav-item {% if active == 'dashboard' %}active{% endif %}"
+         data-label="Dashboard">
+        <i class="ti ti-layout-dashboard"></i>
+        <span class="nav-label">Dashboard</span>
+        {% if urgentes_count is defined and urgentes_count > 0 %}
+        <span class="nav-badge">{{ urgentes_count }}</span>
+        {% endif %}
       </a>
-      <a href="{{ url_for('empresas') }}" class="nav-item {% if active == 'empresas' %}active{% endif %}">
-        <i class="ti ti-building"></i> Empresas
+      <a href="{{ url_for('empresas') }}"
+         class="nav-item {% if active == 'empresas' %}active{% endif %}"
+         data-label="Empresas">
+        <i class="ti ti-building"></i>
+        <span class="nav-label">Empresas</span>
       </a>
 
       <div class="sb-group">Gestão</div>
-      <a href="{{ url_for('cadastros') }}" class="nav-item {% if active == 'cadastros' %}active{% endif %}">
-        <i class="ti ti-database"></i> Cadastros
+      <a href="{{ url_for('cadastros') }}"
+         class="nav-item {% if active == 'cadastros' %}active{% endif %}"
+         data-label="Cadastros">
+        <i class="ti ti-database"></i>
+        <span class="nav-label">Cadastros</span>
       </a>
-      <a href="{{ url_for('responsaveis') }}" class="nav-item {% if active == 'responsaveis' %}active{% endif %}">
-        <i class="ti ti-users"></i> Responsáveis
+      <a href="{{ url_for('responsaveis') }}"
+         class="nav-item {% if active == 'responsaveis' %}active{% endif %}"
+         data-label="Responsáveis">
+        <i class="ti ti-users"></i>
+        <span class="nav-label">Responsáveis</span>
       </a>
-      <a href="{{ url_for('historico') }}" class="nav-item {% if active == 'historico' %}active{% endif %}">
-        <i class="ti ti-history"></i> Histórico
+      <a href="{{ url_for('historico') }}"
+         class="nav-item {% if active == 'historico' %}active{% endif %}"
+         data-label="Histórico">
+        <i class="ti ti-history"></i>
+        <span class="nav-label">Histórico</span>
       </a>
 
       {% if session.get('usuario_nivel') == 'admin' %}
       <div class="sb-group">Sistema</div>
-      <a href="{{ url_for('usuarios') }}" class="nav-item {% if active == 'usuarios' %}active{% endif %}">
-        <i class="ti ti-shield-lock"></i> Usuários
+      <a href="{{ url_for('usuarios') }}"
+         class="nav-item {% if active == 'usuarios' %}active{% endif %}"
+         data-label="Usuários">
+        <i class="ti ti-shield-lock"></i>
+        <span class="nav-label">Usuários</span>
       </a>
-      <a href="{{ url_for('configuracoes') }}" class="nav-item {% if active == 'configuracoes' %}active{% endif %}">
-        <i class="ti ti-settings"></i> Configurações
+      <a href="{{ url_for('configuracoes') }}"
+         class="nav-item {% if active == 'configuracoes' %}active{% endif %}"
+         data-label="Configurações">
+        <i class="ti ti-settings"></i>
+        <span class="nav-label">Configurações</span>
       </a>
       {% endif %}
     </div>
 
-    <!-- RODAPÉ DA SIDEBAR — só usuário, sem marca -->
+    <!-- RODAPÉ -->
     <div class="sb-foot">
-      <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;color:var(--text2)">
-        <i class="ti ti-user-circle" style="font-size:14px"></i>
-        <a href="{{ url_for('perfil') }}" style="color:var(--text);font-weight:600">{{ session.get('usuario_nome','') }}</a>
-        <span style="color:var(--text3)">·</span>
+
+      <!-- Expandida: ícone usuário · nome · sep · sair · tema -->
+      <div class="sb-foot-expanded">
+        <i class="ti ti-user-circle" style="font-size:14px;flex-shrink:0;color:var(--text3)"></i>
+        <a href="{{ url_for('perfil') }}">{{ session.get('usuario_nome','') }}</a>
+        <span class="sep">·</span>
         <a href="{{ url_for('logout') }}" style="color:var(--text3)">Sair</a>
+        <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+          <i class="ti ti-sun theme-icon"></i>
+        </div>
       </div>
+
+      <!-- Colapsada: ícones empilhados -->
+      <div class="sb-foot-collapsed">
+        <a href="{{ url_for('perfil') }}" class="sb-foot-icon-btn" title="Meu perfil">
+          <i class="ti ti-user-circle"></i>
+        </a>
+        <a href="{{ url_for('logout') }}" class="sb-foot-icon-btn" title="Sair">
+          <i class="ti ti-logout"></i>
+        </a>
+        <div class="sb-foot-icon-btn theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+          <i class="ti ti-sun theme-icon"></i>
+        </div>
+      </div>
+
     </div>
   </nav>
 
-  <div class="main-area">
+  <div class="main-area" id="main-area">
     <div class="main-scroll">
       {% with msgs = get_flashed_messages(with_categories=True) %}
         {% for cat, msg in msgs %}
@@ -67,7 +116,6 @@
       {% block page %}{% endblock %}
     </div>
 
-    <!-- RODAPÉ DE PÁGINA — marca AFN SYSTEMS -->
     <footer class="page-footer">
       <div class="pf-brand">
         <span class="pf-afn">AFN</span>
