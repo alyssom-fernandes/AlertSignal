@@ -185,10 +185,14 @@ def dashboard():
     recalcular_todos(conn)
     stats = get_stats(conn)
     total_empresas = conn.execute('SELECT COUNT(*) FROM empresas WHERE ativa=1').fetchone()[0]
+    total_urgentes = conn.execute('''
+        SELECT COUNT(*) FROM documentos d JOIN empresas e ON e.id=d.empresa_id
+        WHERE d.status IN ('VENCIDO','RENOVAR') AND d.vencimento IS NOT NULL AND e.ativa=1
+    ''').fetchone()[0]
     urgentes_raw = conn.execute('''
         SELECT d.id, d.tipo, d.vencimento, d.status, e.nome as empresa, e.id as emp_id
         FROM documentos d JOIN empresas e ON e.id=d.empresa_id
-        WHERE d.status IN ('VENCIDO','RENOVAR') AND d.vencimento IS NOT NULL
+        WHERE d.status IN ('VENCIDO','RENOVAR') AND d.vencimento IS NOT NULL AND e.ativa=1
         ORDER BY d.vencimento LIMIT 20
     ''').fetchall()
     historico = conn.execute('''
@@ -204,7 +208,8 @@ def dashboard():
         dias = calcular_dias(u['vencimento'])
         urgentes.append({'id':u['emp_id'],'doc_id':u['id'],'tipo':u['tipo'],'empresa':u['empresa'],'vencimento':u['vencimento'],'status':u['status'],'dias':dias})
     return render_template('dashboard.html', stats=stats, total_empresas=total_empresas,
-                           urgentes=urgentes, historico=historico, hoje=date.today().strftime('%d/%m/%Y'))
+                           urgentes=urgentes, total_urgentes=total_urgentes,
+                           historico=historico, hoje=date.today().strftime('%d/%m/%Y'))
 
 # ─── EMPRESAS ─────────────────────────────────────────────────────────────────
 

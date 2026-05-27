@@ -6,30 +6,70 @@
   <h1>Empresas</h1>
   <div class="sub">{{ total_empresas }} empresas · {{ dados|length }} categorias</div>
 </div>
-<div class="tabs" id="cat-tabs">
-  {% for item in dados %}
-  <div class="tab {% if loop.first %}active{% endif %}" onclick="mudarTab(this, 'cat-{{ loop.index }}')">{{ item.categoria.nome }}</div>
-  {% endfor %}
+
+<!-- BUSCA GLOBAL -->
+<div style="margin-bottom:16px">
+  <input
+    class="form-input"
+    type="text"
+    id="busca-empresa"
+    placeholder="Buscar empresa por nome..."
+    style="width:300px"
+    oninput="filtrarEmpresas()"
+    autocomplete="off"
+  >
 </div>
-{% for item in dados %}
-<div id="cat-{{ loop.index }}" class="cat-panel" style="{{ 'display:none' if not loop.first }}">
-  <div class="co-grid">
-    {% for emp in item.empresas %}
-    <a class="co-card" href="/empresa/{{ emp.id }}"
-       style="{% if emp.vencidos %}--card-color:var(--danger);--card-glow:rgba(239,68,68,0.2){% elif emp.renovar %}--card-color:var(--warn);--card-glow:rgba(234,179,8,0.2){% else %}--card-color:var(--ok);--card-glow:rgba(16,185,129,0.2){% endif %}">
-      <div class="co-name">{{ emp.nome }}</div>
-      <div class="co-cnpj">{{ emp.cnpj or '—' }}</div>
-      <div class="co-pills">
-        {% if emp.vencidos %}<span class="co-pill" style="background:var(--dng-dim);color:#f87171;border:1px solid var(--dng-border)"><i class="ti ti-alert-triangle" style="font-size:9px"></i> {{ emp.vencidos }} vencido{{ 's' if emp.vencidos > 1 }}</span>{% endif %}
-        {% if emp.renovar %}<span class="co-pill" style="background:var(--warn-dim);color:#facc15;border:1px solid var(--warn-border)"><i class="ti ti-clock" style="font-size:9px"></i> {{ emp.renovar }} renovar</span>{% endif %}
-        {% if emp.ok %}<span class="co-pill" style="background:var(--ok-dim);color:#34d399;border:1px solid var(--ok-border)"><i class="ti ti-check" style="font-size:9px"></i> {{ emp.ok }} ok</span>{% endif %}
-        {% if not emp.vencidos and not emp.renovar and not emp.ok %}<span class="co-pill" style="background:rgba(255,255,255,.04);color:var(--text2);border:1px solid var(--line)">Sem documentos</span>{% endif %}
-      </div>
-    </a>
+
+<!-- AVISO DE BUSCA ATIVA -->
+<div id="busca-aviso" style="display:none;font-size:12px;color:var(--text2);margin-bottom:12px">
+  Mostrando resultados para: <strong id="busca-termo"></strong>
+  <span style="margin-left:8px;color:var(--acc2);cursor:pointer" onclick="limparBusca()">Limpar</span>
+</div>
+
+<!-- GRID DE RESULTADOS DE BUSCA (aparece quando buscando) -->
+<div id="busca-resultados" style="display:none">
+  <div class="co-grid" id="busca-grid"></div>
+</div>
+
+<!-- TABS NORMAIS (some quando buscando) -->
+<div id="tabs-container">
+  <div class="tabs" id="cat-tabs">
+    {% for item in dados %}
+    <div class="tab {% if loop.first %}active{% endif %}"
+         onclick="mudarTab(this, 'cat-{{ loop.index }}')">
+      {{ item.categoria.nome }}
+    </div>
     {% endfor %}
   </div>
+
+  {% for item in dados %}
+  <div id="cat-{{ loop.index }}" class="cat-panel" style="{{ 'display:none' if not loop.first }}">
+    <div class="co-grid">
+      {% for emp in item.empresas %}
+      <a class="co-card empresa-card"
+         href="/empresa/{{ emp.id }}"
+         data-nome="{{ emp.nome|lower }}"
+         data-id="{{ emp.id }}"
+         data-vencidos="{{ emp.vencidos }}"
+         data-renovar="{{ emp.renovar }}"
+         data-ok="{{ emp.ok }}"
+         data-cnpj="{{ emp.cnpj or '' }}"
+         style="{% if emp.vencidos %}--card-color:var(--danger);--card-glow:rgba(239,68,68,0.2){% elif emp.renovar %}--card-color:var(--warn);--card-glow:rgba(234,179,8,0.2){% else %}--card-color:var(--ok);--card-glow:rgba(16,185,129,0.2){% endif %}">
+        <div class="co-name">{{ emp.nome }}</div>
+        <div class="co-cnpj">{{ emp.cnpj or '—' }}</div>
+        <div class="co-pills">
+          {% if emp.vencidos %}<span class="co-pill" style="background:var(--dng-dim);color:#f87171;border:1px solid var(--dng-border)"><i class="ti ti-alert-triangle" style="font-size:9px"></i> {{ emp.vencidos }} vencido{{ 's' if emp.vencidos > 1 }}</span>{% endif %}
+          {% if emp.renovar %}<span class="co-pill" style="background:var(--warn-dim);color:#facc15;border:1px solid var(--warn-border)"><i class="ti ti-clock" style="font-size:9px"></i> {{ emp.renovar }} renovar</span>{% endif %}
+          {% if emp.ok %}<span class="co-pill" style="background:var(--ok-dim);color:#34d399;border:1px solid var(--ok-border)"><i class="ti ti-check" style="font-size:9px"></i> {{ emp.ok }} ok</span>{% endif %}
+          {% if not emp.vencidos and not emp.renovar and not emp.ok %}<span class="co-pill" style="background:rgba(255,255,255,.04);color:var(--text2);border:1px solid var(--line)">Sem documentos</span>{% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
 </div>
-{% endfor %}
+
 {% block scripts %}
 <script>
 function mudarTab(el, painelId) {
@@ -37,6 +77,50 @@ function mudarTab(el, painelId) {
   document.querySelectorAll('.cat-panel').forEach(p => p.style.display = 'none');
   el.classList.add('active');
   document.getElementById(painelId).style.display = '';
+}
+
+function filtrarEmpresas() {
+  const q = document.getElementById('busca-empresa').value.trim().toLowerCase();
+  const tabsContainer  = document.getElementById('tabs-container');
+  const buscaResultados = document.getElementById('busca-resultados');
+  const buscaAviso     = document.getElementById('busca-aviso');
+  const buscaGrid      = document.getElementById('busca-grid');
+  const buscaTermo     = document.getElementById('busca-termo');
+
+  if (!q) {
+    tabsContainer.style.display   = '';
+    buscaResultados.style.display = 'none';
+    buscaAviso.style.display      = 'none';
+    return;
+  }
+
+  // Esconde tabs, mostra grid de resultados
+  tabsContainer.style.display   = 'none';
+  buscaResultados.style.display = '';
+  buscaAviso.style.display      = '';
+  buscaTermo.textContent        = q;
+
+  // Coleta todas as empresas do DOM e filtra
+  const todas = document.querySelectorAll('.empresa-card');
+  buscaGrid.innerHTML = '';
+  let encontradas = 0;
+
+  todas.forEach(card => {
+    const nome = card.dataset.nome || '';
+    if (nome.includes(q)) {
+      buscaGrid.appendChild(card.cloneNode(true));
+      encontradas++;
+    }
+  });
+
+  if (encontradas === 0) {
+    buscaGrid.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:12px 0">Nenhuma empresa encontrada.</div>';
+  }
+}
+
+function limparBusca() {
+  document.getElementById('busca-empresa').value = '';
+  filtrarEmpresas();
 }
 </script>
 {% endblock %}

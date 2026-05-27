@@ -17,7 +17,7 @@
 
 <div class="sec-head">Atenção urgente</div>
 {% if urgentes %}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;margin-bottom:28px">
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;margin-bottom:{% if total_urgentes > 20 %}12px{% else %}28px{% endif %}">
   {% for u in urgentes %}
   <div class="alert-item {{ 'av' if u.status == 'VENCIDO' else 'rn' }}">
     <div class="ai-top">
@@ -38,6 +38,19 @@
   </div>
   {% endfor %}
 </div>
+
+{% if total_urgentes > 20 %}
+<div style="margin-bottom:28px;padding:10px 14px;background:var(--warn-dim);border:1px solid var(--warn-border);border-radius:var(--r2);display:flex;align-items:center;justify-content:space-between">
+  <span style="font-size:12px;color:var(--warn);font-weight:600">
+    <i class="ti ti-info-circle"></i>
+    Exibindo 20 de {{ total_urgentes }} documentos críticos
+  </span>
+  <a href="{{ url_for('empresas') }}" style="font-size:11px;color:var(--warn);font-weight:700">
+    Ver todos →
+  </a>
+</div>
+{% endif %}
+
 {% else %}
 <div style="font-size:13px;color:var(--text2);padding:12px 0;margin-bottom:28px">Nenhum documento urgente no momento.</div>
 {% endif %}
