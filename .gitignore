@@ -1,0 +1,10 @@
+zen.db
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+*.xlsx
