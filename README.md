@@ -1,23 +1,67 @@
-# AlertSignal
+<p align="center">
+  <img src="static/img/logo.png" alt="AlertSignal" height="60">
+</p>
 
-**Document expiration monitoring and automated email alerting system.**
+<p align="center">
+  <strong>Document expiration tracking and automated email alerting system.</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white">
+  <img src="https://img.shields.io/badge/Flask-3.0-000000?style=flat&logo=flask&logoColor=white">
+  <img src="https://img.shields.io/badge/SQLite-embedded-003B57?style=flat&logo=sqlite&logoColor=white">
+  <img src="https://img.shields.io/badge/APScheduler-automated-4CAF50?style=flat">
+  <img src="https://img.shields.io/badge/license-private-red?style=flat">
+</p>
+
+---
 
 AlertSignal is a local web application that tracks business licenses, permits, and regulatory documents — automatically notifying responsible parties before deadlines are missed.
 
-Built as a real-world replacement for a manually maintained spreadsheet used across a multi-company group, AlertSignal introduces automated alerts, multi-stakeholder notification, and a full audit trail without requiring any cloud infrastructure.
+Built as a real-world replacement for a manually maintained spreadsheet, AlertSignal introduces automated alerts, multi-stakeholder notification, and a full audit trail without requiring any cloud infrastructure.
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/login.png" alt="Login" width="700">
+</p>
+<p align="center"><em>Login screen</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700">
+</p>
+<p align="center"><em>Dashboard — status overview and urgent documents</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/empresas.png" alt="Companies" width="700">
+</p>
+<p align="center"><em>Companies — organized by category with status indicators</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/empresa_detalhe.png" alt="Company detail" width="700">
+</p>
+<p align="center"><em>Company detail — document table with expiration tracking</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/historico.png" alt="History" width="700">
+</p>
+<p align="center"><em>History — full audit log of alerts and transactions</em></p>
 
 ---
 
 ## Features
 
 - **Automated email alerts** — daily checks at a configurable time; notifications sent at 90, 30, and 7 days before expiration, plus ongoing reminders for already-expired documents
-- **Multi-company support** — companies organized by category (gas stations, restaurants, holdings, etc.) with per-company document tracking
+- **Multi-company support** — companies organized by category with per-company document tracking
 - **Multiple assignees per document** — each document can have more than one responsible party, reducing the risk of missed alerts
 - **Inline protocol editing** — update protocol numbers directly in the document table without navigating away
 - **Full history log** — every sent notification and registered transaction is recorded with timestamp
 - **Configurable rules** — alert thresholds and send time adjustable through the UI, no code changes needed
-- **Excel import** — existing spreadsheet data is automatically imported on first run
+- **Excel export** — export all documents to a formatted `.xlsx` file with color-coded status
 - **Login-protected** — session-based authentication with admin and viewer roles
+- **Collapsible sidebar** — responsive layout that works on any screen size
 
 ---
 
@@ -30,9 +74,21 @@ Built as a real-world replacement for a manually maintained spreadsheet used acr
 | Scheduler | APScheduler |
 | Email | smtplib + Gmail SMTP over SSL |
 | Frontend | Jinja2 templates + vanilla JS |
-| Fonts | Plus Jakarta Sans + JetBrains Mono (Google Fonts) |
+| Fonts | Plus Jakarta Sans + JetBrains Mono |
 | Icons | Tabler Icons |
 | Data import | pandas + openpyxl |
+
+---
+
+## Technical Decisions
+
+**SQLite over PostgreSQL** — this is a local, single-machine application with no concurrent writes. SQLite means zero configuration, a single file to back up, and no server to maintain. The right tool for the use case.
+
+**APScheduler over cron** — runs inside the Flask process, works cross-platform (including Windows), and lets the send time be configured through the UI without touching the server.
+
+**No ORM** — raw SQL with parameterized queries keeps the codebase simple and explicit. With a schema this size, an ORM would add abstraction without adding value.
+
+**Vanilla JS over a framework** — the interactivity requirements (modals, inline editing, toast notifications) are modest enough that a framework would be over-engineering. The result is a zero-dependency frontend.
 
 ---
 
@@ -44,14 +100,19 @@ alertsignal/
 ├── database.py             # SQLite schema and connection helpers
 ├── importar_planilha.py    # One-time Excel importer
 ├── notificacoes.py         # Alert logic and email dispatch
+├── demo_seed.py            # Demo data seeder
 ├── requirements.txt        # Python dependencies
 ├── .env                    # Environment variables (not committed)
-├── INICIAR.bat             # Windows launcher (double-click to run)
+├── INICIAR.bat             # Windows launcher
 ├── static/
-│   └── js/app.js
+│   ├── img/                # Logo and OG image
+│   ├── js/app.js
+│   └── favicon/            # Favicon pack
+├── docs/
+│   └── screenshots/        # UI screenshots
 └── templates/
     ├── base.html           # Global styles and CSS variables
-    ├── layout.html         # Sidebar layout (inherited by inner pages)
+    ├── layout.html         # Collapsible sidebar layout
     ├── login.html
     ├── dashboard.html
     ├── empresas.html
@@ -75,13 +136,12 @@ alertsignal/
 
 ### Installation
 
-1. Download and extract the project folder
-2. Place your `ALVARAS_GRUPO_ZEN.xlsx` file inside the project folder
-3. Create a `.env` file in the project root with the following content:
+1. Clone the repository
+2. Create a `.env` file in the project root:
    ```
    SECRET_KEY=your-long-secret-key-here
    ```
-4. On Windows, double-click `INICIAR.bat`
+3. On Windows, double-click `INICIAR.bat`
 
 The launcher installs all dependencies, starts the server, and opens the browser automatically.
 
@@ -94,30 +154,32 @@ python app.py
 
 Then open `http://localhost:5000` in your browser.
 
-### Default credentials
+### Demo credentials
+
+The repository includes a pre-seeded demo database with fictional data:
 
 ```
-Email:    admin@grupozen.com.br
-Password: zen2024
+Email:    admin@alertsignal.com
+Password: demo2024
 ```
 
-Change the password after first login.
+To reset and re-seed the demo data:
+
+```bash
+python demo_seed.py --reset
+```
 
 ---
 
 ## Email Configuration
 
-AlertSignal sends alerts through a Gmail account using an App Password — a separate credential generated by Google that does not expose your main account password.
+AlertSignal sends alerts through a Gmail account using an App Password.
 
-**Steps to configure:**
-
-1. Go to [myaccount.google.com](https://myaccount.google.com) → Security → 2-Step Verification (must be enabled)
+1. Go to [myaccount.google.com](https://myaccount.google.com) → Security → 2-Step Verification
 2. Search for **App passwords** → create one named "AlertSignal"
 3. Copy the 16-character password
-4. In AlertSignal, go to **Settings** and fill in the Gmail address and the App Password
-5. Use the **Send test** button to verify the configuration
-
-> **Note:** The App Password is stored as plain text in the database. For production use, consider encrypting it with the `cryptography` library.
+4. In AlertSignal, go to **Settings** and fill in the Gmail address and App Password
+5. Use **Send test** to verify
 
 ---
 
@@ -125,7 +187,7 @@ AlertSignal sends alerts through a Gmail account using an App Password — a sep
 
 ```
 usuarios              — system users (login)
-categorias            — company categories (Postos, Restaurantes, etc.)
+categorias            — company categories
 empresas              — companies with CNPJ and category
 documentos            — documents per company (type, protocol, expiration, status)
 responsaveis          — people who receive notifications
@@ -138,17 +200,11 @@ configuracoes         — key/value settings store
 
 ## Known Limitations
 
-- No CSRF protection on forms — acceptable for a local, login-protected app, but worth adding (Flask-WTF) before any public deployment
-- App Password stored as plain text in the database
-
----
-
-## License
-
-Private use. Built for Grupo Zen internal operations.
+- No CSRF protection on forms — acceptable for a local, login-protected app; would add Flask-WTF before any public deployment
+- App Password stored as plain text in the database — would encrypt with `cryptography.fernet` for production use
 
 ---
 
 ## Author
 
-Developed with Python — first Python project, built to solve a real operational problem and demonstrate full-stack capability across backend logic, database design, scheduled tasks, and email automation.
+Developed by **Alyssom Fernandes** — first Python project, built to solve a real operational problem and demonstrate full-stack capability across backend logic, database design, scheduled tasks, and email automation.

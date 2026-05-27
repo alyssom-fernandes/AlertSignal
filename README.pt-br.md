@@ -1,57 +1,118 @@
-# AlertSignal
+<p align="center">
+  <img src="static/img/logo.png" alt="AlertSignal" height="60">
+</p>
 
-**Document expiration monitoring and automated email alerting system.**
+<p align="center">
+  <strong>Sistema de controle de vencimento de documentos e alertas automáticos por e-mail.</strong>
+</p>
 
-AlertSignal is a local web application that tracks business licenses, permits, and regulatory documents — automatically notifying responsible parties before deadlines are missed.
-
-Built as a real-world replacement for a manually maintained spreadsheet used across a multi-company group, AlertSignal introduces automated alerts, multi-stakeholder notification, and a full audit trail without requiring any cloud infrastructure.
-
----
-
-## Features
-
-- **Automated email alerts** — daily checks at a configurable time; notifications sent at 90, 30, and 7 days before expiration, plus ongoing reminders for already-expired documents
-- **Multi-company support** — companies organized by category (gas stations, restaurants, holdings, etc.) with per-company document tracking
-- **Multiple assignees per document** — each document can have more than one responsible party, reducing the risk of missed alerts
-- **Inline protocol editing** — update protocol numbers directly in the document table without navigating away
-- **Full history log** — every sent notification and registered transaction is recorded with timestamp
-- **Configurable rules** — alert thresholds and send time adjustable through the UI, no code changes needed
-- **Excel import** — existing spreadsheet data is automatically imported on first run
-- **Login-protected** — session-based authentication with admin and viewer roles
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white">
+  <img src="https://img.shields.io/badge/Flask-3.0-000000?style=flat&logo=flask&logoColor=white">
+  <img src="https://img.shields.io/badge/SQLite-embedded-003B57?style=flat&logo=sqlite&logoColor=white">
+  <img src="https://img.shields.io/badge/APScheduler-automatizado-4CAF50?style=flat">
+  <img src="https://img.shields.io/badge/licença-privada-red?style=flat">
+</p>
 
 ---
 
-## Tech Stack
+AlertSignal é uma aplicação web local que rastreia licenças, alvarás e documentos regulatórios de empresas — notificando automaticamente os responsáveis antes que os prazos sejam perdidos.
 
-| Layer | Technology |
+Construído como substituto real de uma planilha mantida manualmente, o AlertSignal introduz alertas automáticos, notificação para múltiplos responsáveis e trilha de auditoria completa, sem necessidade de infraestrutura em nuvem.
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/login.png" alt="Login" width="700">
+</p>
+<p align="center"><em>Tela de login</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700">
+</p>
+<p align="center"><em>Dashboard — visão geral de status e documentos urgentes</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/empresas.png" alt="Empresas" width="700">
+</p>
+<p align="center"><em>Empresas — organizadas por categoria com indicadores de status</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/empresa_detalhe.png" alt="Detalhe da empresa" width="700">
+</p>
+<p align="center"><em>Detalhe da empresa — tabela de documentos com rastreamento de vencimento</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/historico.png" alt="Histórico" width="700">
+</p>
+<p align="center"><em>Histórico — registro completo de alertas e trâmites</em></p>
+
+---
+
+## Funcionalidades
+
+- **Alertas automáticos por e-mail** — verificação diária em horário configurável; notificações disparadas com 90, 30 e 7 dias antes do vencimento, além de lembretes contínuos para documentos já vencidos
+- **Suporte a múltiplas empresas** — empresas organizadas por categoria com rastreamento de documentos individual
+- **Múltiplos responsáveis por documento** — cada documento pode ter mais de um responsável, reduzindo o risco de alertas perdidos
+- **Edição inline de protocolo** — atualiza o número do protocolo diretamente na tabela, sem sair da página
+- **Histórico completo** — cada notificação enviada e trâmite registrado fica gravado com data e hora
+- **Regras configuráveis** — limites de alerta e horário de envio ajustáveis pela interface, sem alterar código
+- **Exportação para Excel** — exporta todos os documentos em `.xlsx` formatado com status colorido
+- **Acesso protegido por login** — autenticação por sessão com níveis admin e visualizador
+- **Sidebar recolhível** — layout responsivo que funciona em qualquer tamanho de tela
+
+---
+
+## Tecnologias
+
+| Camada | Tecnologia |
 |---|---|
 | Backend | Python 3 + Flask |
-| Database | SQLite (single file, zero config) |
-| Scheduler | APScheduler |
-| Email | smtplib + Gmail SMTP over SSL |
+| Banco de dados | SQLite (arquivo único, zero configuração) |
+| Agendador | APScheduler |
+| E-mail | smtplib + Gmail SMTP over SSL |
 | Frontend | Jinja2 templates + vanilla JS |
-| Fonts | Plus Jakarta Sans + JetBrains Mono (Google Fonts) |
-| Icons | Tabler Icons |
-| Data import | pandas + openpyxl |
+| Fontes | Plus Jakarta Sans + JetBrains Mono |
+| Ícones | Tabler Icons |
+| Importação | pandas + openpyxl |
 
 ---
 
-## Project Structure
+## Decisões técnicas
+
+**SQLite em vez de PostgreSQL** — aplicação local, máquina única, sem escritas concorrentes. SQLite significa zero configuração, um único arquivo para fazer backup e nenhum servidor para manter. A ferramenta certa para o caso de uso.
+
+**APScheduler em vez de cron** — roda dentro do processo Flask, funciona em qualquer plataforma incluindo Windows, e permite configurar o horário de envio pela interface sem tocar no servidor.
+
+**Sem ORM** — SQL direto com queries parametrizadas mantém o código simples e explícito. Com um schema desse tamanho, um ORM adicionaria abstração sem agregar valor.
+
+**Vanilla JS sem framework** — os requisitos de interatividade (modais, edição inline, notificações toast) são modestos o suficiente para não justificar um framework. O resultado é um frontend sem dependências externas.
+
+---
+
+## Estrutura do projeto
 
 ```
 alertsignal/
-├── app.py                  # Flask server — all routes and business logic
-├── database.py             # SQLite schema and connection helpers
-├── importar_planilha.py    # One-time Excel importer
-├── notificacoes.py         # Alert logic and email dispatch
-├── requirements.txt        # Python dependencies
-├── .env                    # Environment variables (not committed)
-├── INICIAR.bat             # Windows launcher (double-click to run)
+├── app.py                  # Servidor Flask — todas as rotas e lógica de negócio
+├── database.py             # Schema SQLite e helpers de conexão
+├── importar_planilha.py    # Importador Excel (execução única)
+├── notificacoes.py         # Lógica de alertas e envio de e-mails
+├── demo_seed.py            # Populador de dados fictícios para demo
+├── requirements.txt        # Dependências Python
+├── .env                    # Variáveis de ambiente (não commitado)
+├── INICIAR.bat             # Launcher Windows
 ├── static/
-│   └── js/app.js
+│   ├── img/                # Logo e OG image
+│   ├── js/app.js
+│   └── favicon/            # Pacote de favicons
+├── docs/
+│   └── screenshots/        # Screenshots da interface
 └── templates/
-    ├── base.html           # Global styles and CSS variables
-    ├── layout.html         # Sidebar layout (inherited by inner pages)
+    ├── base.html           # Estilos globais e variáveis CSS
+    ├── layout.html         # Layout com sidebar recolhível
     ├── login.html
     ├── dashboard.html
     ├── empresas.html
@@ -66,89 +127,84 @@ alertsignal/
 
 ---
 
-## Getting Started
+## Como rodar
 
-### Requirements
+### Requisitos
 
-- Python 3.8 or higher
-- Internet connection on first run (to install dependencies)
+- Python 3.8 ou superior
+- Conexão com internet na primeira execução (para instalar dependências)
 
-### Installation
+### Instalação
 
-1. Download and extract the project folder
-2. Place your `ALVARAS_GRUPO_ZEN.xlsx` file inside the project folder
-3. Create a `.env` file in the project root with the following content:
+1. Clone o repositório
+2. Crie um arquivo `.env` na raiz do projeto:
    ```
-   SECRET_KEY=your-long-secret-key-here
+   SECRET_KEY=sua-chave-secreta-longa-aqui
    ```
-4. On Windows, double-click `INICIAR.bat`
+3. No Windows, dê duplo clique em `INICIAR.bat`
 
-The launcher installs all dependencies, starts the server, and opens the browser automatically.
+O launcher instala todas as dependências, sobe o servidor e abre o navegador automaticamente.
 
-### Manual start (any OS)
+### Execução manual (qualquer SO)
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
 
-Then open `http://localhost:5000` in your browser.
+Acesse `http://localhost:5000` no navegador.
 
-### Default credentials
+### Credenciais da demo
 
-```
-Email:    admin@grupozen.com.br
-Password: zen2024
-```
-
-Change the password after first login.
-
----
-
-## Email Configuration
-
-AlertSignal sends alerts through a Gmail account using an App Password — a separate credential generated by Google that does not expose your main account password.
-
-**Steps to configure:**
-
-1. Go to [myaccount.google.com](https://myaccount.google.com) → Security → 2-Step Verification (must be enabled)
-2. Search for **App passwords** → create one named "AlertSignal"
-3. Copy the 16-character password
-4. In AlertSignal, go to **Settings** and fill in the Gmail address and the App Password
-5. Use the **Send test** button to verify the configuration
-
-> **Note:** The App Password is stored as plain text in the database. For production use, consider encrypting it with the `cryptography` library.
-
----
-
-## Database Schema
+O repositório inclui um banco de dados pré-populado com dados fictícios:
 
 ```
-usuarios              — system users (login)
-categorias            — company categories (Postos, Restaurantes, etc.)
-empresas              — companies with CNPJ and category
-documentos            — documents per company (type, protocol, expiration, status)
-responsaveis          — people who receive notifications
-documento_responsavel — N:N link between documents and assignees
-historico             — audit log of alerts sent and transactions
-configuracoes         — key/value settings store
+E-mail:  admin@alertsignal.com
+Senha:   demo2024
+```
+
+Para resetar e recriar os dados demo:
+
+```bash
+python demo_seed.py --reset
 ```
 
 ---
 
-## Known Limitations
+## Configuração de e-mail
 
-- No CSRF protection on forms — acceptable for a local, login-protected app, but worth adding (Flask-WTF) before any public deployment
-- App Password stored as plain text in the database
+O AlertSignal envia alertas através de uma conta Gmail usando uma Senha de App.
+
+1. Acesse [myaccount.google.com](https://myaccount.google.com) → Segurança → Verificação em duas etapas
+2. Procure **Senhas de app** → crie uma chamada "AlertSignal"
+3. Copie a senha de 16 caracteres
+4. No AlertSignal, acesse **Configurações** e preencha o e-mail e a Senha de App
+5. Use **Enviar teste** para verificar
 
 ---
 
-## License
+## Schema do banco de dados
 
-Private use. Built for Grupo Zen internal operations.
+```
+usuarios              — usuários do sistema (login)
+categorias            — categorias de empresas
+empresas              — empresas com CNPJ e categoria
+documentos            — documentos por empresa (tipo, protocolo, vencimento, status)
+responsaveis          — pessoas que recebem notificações
+documento_responsavel — vínculo N:N entre documentos e responsáveis
+historico             — registro de alertas enviados e trâmites
+configuracoes         — configurações em chave/valor
+```
 
 ---
 
-## Author
+## Limitações conhecidas
 
-Developed with Python — first Python project, built to solve a real operational problem and demonstrate full-stack capability across backend logic, database design, scheduled tasks, and email automation.
+- Sem proteção CSRF nos formulários — aceitável para aplicação local protegida por login; adicionaria Flask-WTF antes de qualquer deploy público
+- Senha de App armazenada em texto puro no banco — usaria `cryptography.fernet` para uso em produção
+
+---
+
+## Autor
+
+Desenvolvido por **Alyssom Fernandes** — primeiro projeto Python, construído para resolver um problema operacional real e demonstrar capacidade full-stack em lógica de backend, modelagem de banco de dados, tarefas agendadas e automação de e-mail.
