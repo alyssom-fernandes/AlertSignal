@@ -13,7 +13,7 @@ if errorlevel 1 (
 
 :: Instala dependencias se necessario
 echo Verificando dependencias...
-pip install flask apscheduler openpyxl pandas werkzeug --quiet 2>nul
+pip install flask apscheduler openpyxl pandas werkzeug python-dotenv --quiet 2>nul
 
 :: Abre o navegador apos 4 segundos em segundo plano
 start "" /B PowerShell -WindowStyle Hidden -Command "Start-Sleep 4; Start-Process 'http://localhost:5000'"

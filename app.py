@@ -654,3 +654,6 @@ if __name__ == '__main__':
     print('\n AlertSignal rodando em http://localhost:5000')
     print(' Login: admin@grupozen.com.br | Senha: zen2024\n')
     app.run(host='0.0.0.0', port=5000, debug=False)
+    
+import atexit
+atexit.register(lambda: scheduler.shutdown(wait=False))
