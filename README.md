@@ -17,7 +17,7 @@ Built as a real-world replacement for a manually maintained spreadsheet used acr
 - **Full history log** — every sent notification and registered transaction is recorded with timestamp
 - **Configurable rules** — alert thresholds and send time adjustable through the UI, no code changes needed
 - **Excel import** — existing spreadsheet data is automatically imported on first run
-- **Login-protected** — session-based authentication keeps data access controlled
+- **Login-protected** — session-based authentication with admin and viewer roles
 
 ---
 
@@ -30,7 +30,7 @@ Built as a real-world replacement for a manually maintained spreadsheet used acr
 | Scheduler | APScheduler |
 | Email | smtplib + Gmail SMTP over SSL |
 | Frontend | Jinja2 templates + vanilla JS |
-| Fonts | Space Grotesk (Google Fonts) |
+| Fonts | Plus Jakarta Sans + JetBrains Mono (Google Fonts) |
 | Icons | Tabler Icons |
 | Data import | pandas + openpyxl |
 
@@ -44,20 +44,24 @@ alertsignal/
 ├── database.py             # SQLite schema and connection helpers
 ├── importar_planilha.py    # One-time Excel importer
 ├── notificacoes.py         # Alert logic and email dispatch
+├── requirements.txt        # Python dependencies
+├── .env                    # Environment variables (not committed)
 ├── INICIAR.bat             # Windows launcher (double-click to run)
 ├── static/
-│   ├── img/logo.png
 │   └── js/app.js
 └── templates/
-    ├── base.html           # Global styles and variables
+    ├── base.html           # Global styles and CSS variables
     ├── layout.html         # Sidebar layout (inherited by inner pages)
     ├── login.html
     ├── dashboard.html
     ├── empresas.html
     ├── empresa_detalhe.html
+    ├── cadastros.html
     ├── responsaveis.html
     ├── historico.html
-    └── configuracoes.html
+    ├── configuracoes.html
+    ├── perfil.html
+    └── usuarios.html
 ```
 
 ---
@@ -73,14 +77,18 @@ alertsignal/
 
 1. Download and extract the project folder
 2. Place your `ALVARAS_GRUPO_ZEN.xlsx` file inside the project folder
-3. On Windows, double-click `INICIAR.bat`
+3. Create a `.env` file in the project root with the following content:
+   ```
+   SECRET_KEY=your-long-secret-key-here
+   ```
+4. On Windows, double-click `INICIAR.bat`
 
 The launcher installs all dependencies, starts the server, and opens the browser automatically.
 
 ### Manual start (any OS)
 
 ```bash
-pip install flask apscheduler openpyxl pandas werkzeug
+pip install -r requirements.txt
 python app.py
 ```
 
@@ -109,6 +117,8 @@ AlertSignal sends alerts through a Gmail account using an App Password — a sep
 4. In AlertSignal, go to **Settings** and fill in the Gmail address and the App Password
 5. Use the **Send test** button to verify the configuration
 
+> **Note:** The App Password is stored as plain text in the database. For production use, consider encrypting it with the `cryptography` library.
+
 ---
 
 ## Database Schema
@@ -126,9 +136,10 @@ configuracoes         — key/value settings store
 
 ---
 
-## Screenshots
+## Known Limitations
 
-> Dashboard, company list, document detail, and settings screens follow the Obsidian + Red dark theme using Space Grotesk typography throughout.
+- No CSRF protection on forms — acceptable for a local, login-protected app, but worth adding (Flask-WTF) before any public deployment
+- App Password stored as plain text in the database
 
 ---
 

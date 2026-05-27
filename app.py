@@ -3,14 +3,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import date, datetime
 from functools import wraps
+from dotenv import load_dotenv
 import os
+import atexit
+
+load_dotenv()
 
 from database import get_connection, init_db, inserir_configuracoes_padrao, get_config, set_config
 from importar_planilha import importar
 from notificacoes import executar_verificacao_diaria, calcular_dias, recalcular_status
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'zen-alvaras-chave-segura-2024')
+app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
 
 TIPOS_DOC = [
     'AVCB', 'Licença de Operação', 'LAC - Licença de Transportes',
@@ -651,9 +655,7 @@ if __name__ == '__main__':
     xlsx = os.path.join(os.path.dirname(__file__), 'ALVARAS_GRUPO_ZEN.xlsx')
     importar(xlsx)
     iniciar_agendador()
+    atexit.register(lambda: scheduler.shutdown(wait=False))
     print('\n AlertSignal rodando em http://localhost:5000')
     print(' Login: admin@grupozen.com.br | Senha: zen2024\n')
     app.run(host='0.0.0.0', port=5000, debug=False)
-    
-import atexit
-atexit.register(lambda: scheduler.shutdown(wait=False))

@@ -1,143 +1,154 @@
 # AlertSignal
 
-**Sistema de monitoramento de vencimentos e alertas automáticos por e-mail.**
+**Document expiration monitoring and automated email alerting system.**
 
-O AlertSignal é uma aplicação web local que acompanha alvarás, licenças e documentos regulatórios de empresas — notificando automaticamente os responsáveis antes que os prazos sejam perdidos.
+AlertSignal is a local web application that tracks business licenses, permits, and regulatory documents — automatically notifying responsible parties before deadlines are missed.
 
-Desenvolvido como substituto real de uma planilha mantida manualmente em um grupo multi-empresas, o AlertSignal introduz alertas automáticos, notificação para múltiplos responsáveis e registro completo de histórico — sem depender de nenhuma infraestrutura em nuvem.
-
----
-
-## Funcionalidades
-
-- **Alertas automáticos por e-mail** — verificação diária em horário configurável; notificações enviadas com 90, 30 e 7 dias de antecedência, além de lembretes contínuos para documentos já vencidos
-- **Múltiplas empresas** — organizadas por categoria (postos, restaurantes, holdings, etc.) com controle de documentos por empresa
-- **Múltiplos responsáveis por documento** — cada documento pode ter mais de um responsável, reduzindo o risco de alertas ignorados
-- **Edição inline de protocolo** — atualiza o número do protocolo diretamente na tabela, sem navegar para outra tela
-- **Histórico completo** — cada notificação enviada e trâmite registrado fica gravado com data e hora
-- **Regras configuráveis** — limites de alerta e horário de envio ajustáveis pela interface, sem mexer em código
-- **Importação do Excel** — os dados da planilha existente são importados automaticamente na primeira execução
-- **Acesso protegido por login** — autenticação por sessão mantém o controle sobre quem acessa o sistema
+Built as a real-world replacement for a manually maintained spreadsheet used across a multi-company group, AlertSignal introduces automated alerts, multi-stakeholder notification, and a full audit trail without requiring any cloud infrastructure.
 
 ---
 
-## Tecnologias utilizadas
+## Features
 
-| Camada | Tecnologia |
+- **Automated email alerts** — daily checks at a configurable time; notifications sent at 90, 30, and 7 days before expiration, plus ongoing reminders for already-expired documents
+- **Multi-company support** — companies organized by category (gas stations, restaurants, holdings, etc.) with per-company document tracking
+- **Multiple assignees per document** — each document can have more than one responsible party, reducing the risk of missed alerts
+- **Inline protocol editing** — update protocol numbers directly in the document table without navigating away
+- **Full history log** — every sent notification and registered transaction is recorded with timestamp
+- **Configurable rules** — alert thresholds and send time adjustable through the UI, no code changes needed
+- **Excel import** — existing spreadsheet data is automatically imported on first run
+- **Login-protected** — session-based authentication with admin and viewer roles
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
 |---|---|
 | Backend | Python 3 + Flask |
-| Banco de dados | SQLite (arquivo único, sem configuração) |
-| Agendador | APScheduler |
-| E-mail | smtplib + Gmail SMTP com SSL |
-| Frontend | Templates Jinja2 + JavaScript puro |
-| Fonte | Space Grotesk (Google Fonts) |
-| Ícones | Tabler Icons |
-| Importação de dados | pandas + openpyxl |
+| Database | SQLite (single file, zero config) |
+| Scheduler | APScheduler |
+| Email | smtplib + Gmail SMTP over SSL |
+| Frontend | Jinja2 templates + vanilla JS |
+| Fonts | Plus Jakarta Sans + JetBrains Mono (Google Fonts) |
+| Icons | Tabler Icons |
+| Data import | pandas + openpyxl |
 
 ---
 
-## Estrutura do projeto
+## Project Structure
 
 ```
 alertsignal/
-├── app.py                  # Servidor Flask — rotas e lógica de negócio
-├── database.py             # Esquema SQLite e funções de acesso
-├── importar_planilha.py    # Importador único do arquivo Excel
-├── notificacoes.py         # Lógica de alertas e envio de e-mails
-├── INICIAR.bat             # Atalho Windows (duplo clique para rodar)
+├── app.py                  # Flask server — all routes and business logic
+├── database.py             # SQLite schema and connection helpers
+├── importar_planilha.py    # One-time Excel importer
+├── notificacoes.py         # Alert logic and email dispatch
+├── requirements.txt        # Python dependencies
+├── .env                    # Environment variables (not committed)
+├── INICIAR.bat             # Windows launcher (double-click to run)
 ├── static/
-│   ├── img/logo.png
 │   └── js/app.js
 └── templates/
-    ├── base.html           # Estilos globais e variáveis CSS
-    ├── layout.html         # Layout com sidebar (herdado pelas páginas internas)
+    ├── base.html           # Global styles and CSS variables
+    ├── layout.html         # Sidebar layout (inherited by inner pages)
     ├── login.html
     ├── dashboard.html
     ├── empresas.html
     ├── empresa_detalhe.html
+    ├── cadastros.html
     ├── responsaveis.html
     ├── historico.html
-    └── configuracoes.html
+    ├── configuracoes.html
+    ├── perfil.html
+    └── usuarios.html
 ```
 
 ---
 
-## Como rodar
+## Getting Started
 
-### Requisitos
+### Requirements
 
-- Python 3.8 ou superior
-- Conexão com internet na primeira execução (para instalar dependências)
+- Python 3.8 or higher
+- Internet connection on first run (to install dependencies)
 
-### Instalação
+### Installation
 
-1. Baixe e extraia a pasta do projeto
-2. Coloque o arquivo `ALVARAS_GRUPO_ZEN.xlsx` dentro da pasta do projeto
-3. No Windows, dê duplo clique em `INICIAR.bat`
+1. Download and extract the project folder
+2. Place your `ALVARAS_GRUPO_ZEN.xlsx` file inside the project folder
+3. Create a `.env` file in the project root with the following content:
+   ```
+   SECRET_KEY=your-long-secret-key-here
+   ```
+4. On Windows, double-click `INICIAR.bat`
 
-O script instala as dependências automaticamente, sobe o servidor e abre o navegador.
+The launcher installs all dependencies, starts the server, and opens the browser automatically.
 
-### Inicialização manual (qualquer sistema operacional)
+### Manual start (any OS)
 
 ```bash
-pip install flask apscheduler openpyxl pandas werkzeug
+pip install -r requirements.txt
 python app.py
 ```
 
-Em seguida, acesse `http://localhost:5000` no navegador.
+Then open `http://localhost:5000` in your browser.
 
-### Credenciais padrão
-
-```
-E-mail: admin@grupozen.com.br
-Senha:  zen2024
-```
-
-Altere a senha após o primeiro acesso.
-
----
-
-## Configuração de e-mail
-
-O AlertSignal envia alertas por uma conta Gmail usando uma Senha de App — uma credencial separada gerada pelo Google que não expõe a senha principal da conta.
-
-**Passo a passo:**
-
-1. Acesse [myaccount.google.com](https://myaccount.google.com) → Segurança → Verificação em duas etapas (precisa estar ativada)
-2. Procure por **Senhas de app** → crie uma com o nome "AlertSignal"
-3. Copie a senha de 16 caracteres gerada
-4. No AlertSignal, vá em **Configurações** e preencha o Gmail e a Senha de App
-5. Use o botão **Enviar teste** para confirmar que está funcionando
-
----
-
-## Estrutura do banco de dados
+### Default credentials
 
 ```
-usuarios              — usuários do sistema (login)
-categorias            — categorias de empresa (Postos, Restaurantes, etc.)
-empresas              — empresas com CNPJ e categoria
-documentos            — documentos por empresa (tipo, protocolo, vencimento, status)
-responsaveis          — pessoas que recebem notificações
-documento_responsavel — ligação N:N entre documentos e responsáveis
-historico             — log de alertas enviados e trâmites registrados
-configuracoes         — armazenamento de configurações em chave/valor
+Email:    admin@grupozen.com.br
+Password: zen2024
+```
+
+Change the password after first login.
+
+---
+
+## Email Configuration
+
+AlertSignal sends alerts through a Gmail account using an App Password — a separate credential generated by Google that does not expose your main account password.
+
+**Steps to configure:**
+
+1. Go to [myaccount.google.com](https://myaccount.google.com) → Security → 2-Step Verification (must be enabled)
+2. Search for **App passwords** → create one named "AlertSignal"
+3. Copy the 16-character password
+4. In AlertSignal, go to **Settings** and fill in the Gmail address and the App Password
+5. Use the **Send test** button to verify the configuration
+
+> **Note:** The App Password is stored as plain text in the database. For production use, consider encrypting it with the `cryptography` library.
+
+---
+
+## Database Schema
+
+```
+usuarios              — system users (login)
+categorias            — company categories (Postos, Restaurantes, etc.)
+empresas              — companies with CNPJ and category
+documentos            — documents per company (type, protocol, expiration, status)
+responsaveis          — people who receive notifications
+documento_responsavel — N:N link between documents and assignees
+historico             — audit log of alerts sent and transactions
+configuracoes         — key/value settings store
 ```
 
 ---
 
-## Visual
+## Known Limitations
 
-O sistema segue o tema escuro Obsidiana + Vermelho com tipografia Space Grotesk. O fundo próximo ao preto puro (`#080808`) com superfícies em camadas sutis cria profundidade sem poluir a interface. Os cards de status usam o estilo pill horizontal com bordas coloridas por nível de urgência — vermelho para vencido, âmbar para renovar, verde para em dia.
-
----
-
-## Licença
-
-Uso privado. Desenvolvido para operações internas do Grupo Zen.
+- No CSRF protection on forms — acceptable for a local, login-protected app, but worth adding (Flask-WTF) before any public deployment
+- App Password stored as plain text in the database
 
 ---
 
-## Sobre o projeto
+## License
 
-Primeiro projeto Python — desenvolvido para resolver um problema operacional real, demonstrando capacidade full-stack: lógica de backend, modelagem de banco de dados, tarefas agendadas e automação de e-mail.
+Private use. Built for Grupo Zen internal operations.
+
+---
+
+## Author
+
+Developed with Python — first Python project, built to solve a real operational problem and demonstrate full-stack capability across backend logic, database design, scheduled tasks, and email automation.
