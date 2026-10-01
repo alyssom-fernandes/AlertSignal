@@ -3,127 +3,73 @@
 </p>
 
 <p align="center">
-  <strong>Sistema de controle de vencimento de documentos e alertas automáticos por e-mail.</strong>
+  <strong>Controle de vencimento de alvarás e licenças, com alertas automáticos por e-mail.</strong>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white">
-  <img src="https://img.shields.io/badge/Flask-3.0-000000?style=flat&logo=flask&logoColor=white">
-  <img src="https://img.shields.io/badge/SQLite-embedded-003B57?style=flat&logo=sqlite&logoColor=white">
+  <img src="https://img.shields.io/badge/Flask-3-000000?style=flat&logo=flask&logoColor=white">
+  <img src="https://img.shields.io/badge/SQLite-embutido-003B57?style=flat&logo=sqlite&logoColor=white">
   <img src="https://img.shields.io/badge/APScheduler-automatizado-4CAF50?style=flat">
-  <img src="https://img.shields.io/badge/licença-privada-red?style=flat">
+  <img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue?style=flat">
 </p>
+
+<p align="center"><a href="README.md">English</a> · Português</p>
 
 ---
 
-AlertSignal é uma aplicação web local que rastreia licenças, alvarás e documentos regulatórios de empresas — notificando automaticamente os responsáveis antes que os prazos sejam perdidos.
+O AlertSignal acompanha os alvarás, licenças e documentos regulatórios de um grupo de empresas e avisa os responsáveis por e-mail antes que algum vença.
 
-Construído como substituto real de uma planilha mantida manualmente, o AlertSignal introduz alertas automáticos, notificação para múltiplos responsáveis e trilha de auditoria completa, sem necessidade de infraestrutura em nuvem.
+Ele substituiu uma planilha mantida à mão. Roda numa máquina da empresa, sem nuvem, e guarda tudo num único arquivo SQLite.
 
 ---
 
-## Screenshots
+## Capturas
 
 <p align="center">
-  <img src="docs/screenshots/login.png" alt="Login" width="700">
+  <img src="docs/screenshots/dashboard.png" alt="Visão geral" width="760">
 </p>
-<p align="center"><em>Tela de login</em></p>
+<p align="center"><em>Visão geral: totais por situação, vencimentos dos próximos 12 meses e o que precisa de atenção agora</em></p>
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700">
+  <img src="docs/screenshots/empresa_detalhe.png" alt="Página da empresa" width="760">
 </p>
-<p align="center"><em>Dashboard — visão geral de status e documentos urgentes</em></p>
+<p align="center"><em>Página da empresa: documentos do mais urgente para o em dia, com renovação, edição e responsáveis</em></p>
 
 <p align="center">
-  <img src="docs/screenshots/empresas.png" alt="Empresas" width="700">
+  <img src="docs/screenshots/relatorio.png" alt="Relatório" width="760">
 </p>
-<p align="center"><em>Empresas — organizadas por categoria com indicadores de status</em></p>
+<p align="center"><em>Relatório de vencimentos no tema claro, pronto para imprimir ou salvar em PDF</em></p>
 
 <p align="center">
-  <img src="docs/screenshots/empresa_detalhe.png" alt="Detalhe da empresa" width="700">
+  <img src="docs/screenshots/empresas.png" alt="Empresas" width="760">
 </p>
-<p align="center"><em>Detalhe da empresa — tabela de documentos com rastreamento de vencimento</em></p>
+<p align="center"><em>Empresas separadas por categoria, com a situação de cada uma</em></p>
 
 <p align="center">
-  <img src="docs/screenshots/historico.png" alt="Histórico" width="700">
+  <img src="docs/screenshots/celular.png" alt="No celular" width="760">
 </p>
-<p align="center"><em>Histórico — registro completo de alertas e trâmites</em></p>
+<p align="center"><em>No celular: tabelas viram cartões e o menu vira gaveta</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/login.png" alt="Entrada" width="760">
+</p>
+<p align="center"><em>Entrada, com os botões da demonstração</em></p>
 
 ---
 
 ## Funcionalidades
 
-- **Alertas automáticos por e-mail** — verificação diária em horário configurável; notificações disparadas com 90, 30 e 7 dias antes do vencimento, além de lembretes contínuos para documentos já vencidos
-- **Suporte a múltiplas empresas** — empresas organizadas por categoria com rastreamento de documentos individual
-- **Múltiplos responsáveis por documento** — cada documento pode ter mais de um responsável, reduzindo o risco de alertas perdidos
-- **Edição inline de protocolo** — atualiza o número do protocolo diretamente na tabela, sem sair da página
-- **Histórico completo** — cada notificação enviada e trâmite registrado fica gravado com data e hora
-- **Regras configuráveis** — limites de alerta e horário de envio ajustáveis pela interface, sem alterar código
-- **Exportação para Excel** — exporta todos os documentos em `.xlsx` formatado com status colorido
-- **Acesso protegido por login** — autenticação por sessão com níveis admin e visualizador
-- **Sidebar recolhível** — layout responsivo que funciona em qualquer tamanho de tela
-
----
-
-## Tecnologias
-
-| Camada | Tecnologia |
-|---|---|
-| Backend | Python 3 + Flask |
-| Banco de dados | SQLite (arquivo único, zero configuração) |
-| Agendador | APScheduler |
-| E-mail | smtplib + Gmail SMTP over SSL |
-| Frontend | Jinja2 templates + vanilla JS |
-| Fontes | Plus Jakarta Sans + JetBrains Mono |
-| Ícones | Tabler Icons |
-| Importação | pandas + openpyxl |
-
----
-
-## Decisões técnicas
-
-**SQLite em vez de PostgreSQL** — aplicação local, máquina única, sem escritas concorrentes. SQLite significa zero configuração, um único arquivo para fazer backup e nenhum servidor para manter. A ferramenta certa para o caso de uso.
-
-**APScheduler em vez de cron** — roda dentro do processo Flask, funciona em qualquer plataforma incluindo Windows, e permite configurar o horário de envio pela interface sem tocar no servidor.
-
-**Sem ORM** — SQL direto com queries parametrizadas mantém o código simples e explícito. Com um schema desse tamanho, um ORM adicionaria abstração sem agregar valor.
-
-**Vanilla JS sem framework** — os requisitos de interatividade (modais, edição inline, notificações toast) são modestos o suficiente para não justificar um framework. O resultado é um frontend sem dependências externas.
-
----
-
-## Estrutura do projeto
-
-```
-alertsignal/
-├── app.py                  # Servidor Flask — todas as rotas e lógica de negócio
-├── database.py             # Schema SQLite e helpers de conexão
-├── importar_planilha.py    # Importador Excel (execução única)
-├── notificacoes.py         # Lógica de alertas e envio de e-mails
-├── demo_seed.py            # Populador de dados fictícios para demo
-├── requirements.txt        # Dependências Python
-├── .env                    # Variáveis de ambiente (não commitado)
-├── INICIAR.bat             # Launcher Windows
-├── static/
-│   ├── img/                # Logo e OG image
-│   ├── js/app.js
-│   └── favicon/            # Pacote de favicons
-├── docs/
-│   └── screenshots/        # Screenshots da interface
-└── templates/
-    ├── base.html           # Estilos globais e variáveis CSS
-    ├── layout.html         # Layout com sidebar recolhível
-    ├── login.html
-    ├── dashboard.html
-    ├── empresas.html
-    ├── empresa_detalhe.html
-    ├── cadastros.html
-    ├── responsaveis.html
-    ├── historico.html
-    ├── configuracoes.html
-    ├── perfil.html
-    └── usuarios.html
-```
+- **Alertas automáticos por e-mail.** Verificação diária num horário configurável, com avisos 90, 30 e 7 dias antes do vencimento e lembretes diários para o que já venceu. O e-mail agrupa os documentos por urgência e tem versão em texto simples.
+- **Várias empresas e categorias.** Cada empresa tem os próprios documentos, e as categorias organizam por ramo (postos, restaurantes, hotéis...).
+- **Mais de um responsável por documento**, para nenhum alerta depender de uma pessoa só.
+- **Renovação, edição e protocolo na própria tela da empresa**, com o histórico registrando quem fez o quê.
+- **Relatório de vencimentos** com filtros por situação, categoria e empresa, impressão em paisagem e "salvar como PDF".
+- **Exportação** para Excel formatado (cores por situação, filtro, totais, pronto para imprimir) e para CSV com ponto e vírgula, que o Excel em português abre direto em colunas.
+- **Gráfico dos vencimentos dos próximos 12 meses**, com dica ao passar o mouse e versão em tabela.
+- **Dois níveis de acesso.** Administradores alteram; visualizadores só consultam, e o servidor também bloqueia.
+- **Tema escuro e claro**, que segue o sistema na primeira visita, e layout para celular.
+- **Modo demonstração** com dados fictícios, num banco separado.
 
 ---
 
@@ -132,79 +78,128 @@ alertsignal/
 ### Requisitos
 
 - Python 3.8 ou superior
-- Conexão com internet na primeira execução (para instalar dependências)
 
-### Instalação
-
-1. Clone o repositório
-2. Crie um arquivo `.env` na raiz do projeto:
-   ```
-   SECRET_KEY=sua-chave-secreta-longa-aqui
-   ```
-3. No Windows, dê duplo clique em `INICIAR.bat`
-
-O launcher instala todas as dependências, sobe o servidor e abre o navegador automaticamente.
-
-### Execução manual (qualquer SO)
+### Demonstração (dados fictícios)
 
 ```bash
 pip install -r requirements.txt
-python app.py
+python app.py --demo
 ```
 
-Acesse `http://localhost:5000` no navegador.
+Abra `http://localhost:5000` e use os botões **Entrar como administrador** ou **Entrar como visualizador**. A demonstração grava num `demo.db` separado, recriado a cada início, e não envia nenhum e-mail. No Windows, dá para usar o `DEMONSTRACAO.bat`.
 
-### Credenciais da demo
+### Uso real
 
-O repositório inclui um banco de dados pré-populado com dados fictícios:
+1. Crie um arquivo `.env` na raiz do projeto:
+   ```
+   SECRET_KEY=uma-chave-longa-e-aleatoria
+   ```
+2. Rode `python app.py` (ou dê duplo clique em `INICIAR.bat` no Windows).
+3. Entre com `admin@grupozen.com.br` e a senha `zen2024` e troque a senha em **Meu perfil**.
 
-```
-E-mail:  admin@alertsignal.com
-Senha:   demo2024
-```
+Os dados ficam em `zen.db`, que não vai para o git. Se houver uma planilha `ALVARAS_GRUPO_ZEN.xlsx` na pasta, ela é importada na primeira execução.
 
-Para resetar e recriar os dados demo:
+> **Atualizando uma instalação feita a partir de um clone antigo:** versões anteriores guardavam o `zen.db` no repositório. Antes do `git pull`, faça uma cópia do `zen.db` e, se o git recusar a atualização por causa dele, restaure a cópia depois do pull. Nunca use `git reset --hard` ou `git checkout -- zen.db` nessa máquina sem a cópia.
+
+### Testes
 
 ```bash
-python demo_seed.py --reset
+python -m unittest discover -s tests -v
+```
+
+Os testes rodam no modo demonstração, num banco temporário, e cobrem as páginas, as permissões do visualizador, a proteção contra CSRF, as exportações e o e-mail de alerta.
+
+---
+
+## Configuração do e-mail
+
+O AlertSignal envia pelo Gmail com uma senha de app.
+
+1. Em [myaccount.google.com](https://myaccount.google.com), ative a verificação em duas etapas.
+2. Procure **Senhas de app** e crie uma chamada "AlertSignal".
+3. No AlertSignal, abra **Configurações**, preencha o e-mail e a senha de app e salve.
+4. Use **Enviar teste** para conferir.
+5. Opcional: informe o **Endereço do sistema** na rede (ex.: `http://192.168.0.10:5000`) para o e-mail ganhar o botão "Abrir no AlertSignal".
+
+---
+
+## Tecnologias
+
+| Camada | Tecnologia |
+|---|---|
+| Servidor | Python 3 + Flask |
+| Banco de dados | SQLite |
+| Agendador | APScheduler |
+| E-mail | smtplib + Gmail (SSL) |
+| Interface | Jinja2, CSS e JavaScript sem framework |
+| Fontes e ícones | Plus Jakarta Sans, JetBrains Mono e Tabler Icons |
+| Planilhas | openpyxl (exportação) e pandas (importação) |
+
+---
+
+## Decisões técnicas
+
+**SQLite em vez de PostgreSQL.** É uma aplicação local, numa máquina só e com poucas escritas. SQLite não pede configuração, e o backup é copiar um arquivo.
+
+**APScheduler em vez de cron.** Roda dentro do processo do Flask, funciona no Windows e deixa o horário do envio ser trocado pela própria tela.
+
+**SQL direto, sem ORM.** Consultas parametrizadas, explícitas e curtas. Com oito tabelas, um ORM só acrescentaria camadas.
+
+**JavaScript sem framework.** Modais com `<dialog>`, edição na linha, filtros e avisos cabem em poucas funções. O gráfico é feito com HTML e CSS e continua legível no celular.
+
+**Proteção contra CSRF sem dependência.** Um token por sessão vai em todo formulário e em todo `fetch` que altera dados.
+
+---
+
+## Estrutura do projeto
+
+```
+alertsignal/
+├── app.py                  # Rotas, permissões, relatório e exportações
+├── database.py             # Esquema do SQLite e conexão
+├── notificacoes.py         # Regras dos alertas e envio de e-mail
+├── demo_seed.py            # Dados fictícios do modo demonstração
+├── importar_planilha.py    # Importação da planilha antiga (uma vez)
+├── tests/test_rotas.py     # Testes (unittest)
+├── INICIAR.bat             # Inicia o sistema no Windows
+├── DEMONSTRACAO.bat        # Inicia a demonstração no Windows
+├── static/
+│   ├── css/app.css         # Estilos, temas, celular e impressão
+│   ├── js/app.js           # Modais, confirmações, abas, tema e menu
+│   └── img/                # Logos (versões para tema escuro e claro)
+└── templates/              # Páginas Jinja (layout, telas, relatório e erros)
 ```
 
 ---
 
-## Configuração de e-mail
-
-O AlertSignal envia alertas através de uma conta Gmail usando uma Senha de App.
-
-1. Acesse [myaccount.google.com](https://myaccount.google.com) → Segurança → Verificação em duas etapas
-2. Procure **Senhas de app** → crie uma chamada "AlertSignal"
-3. Copie a senha de 16 caracteres
-4. No AlertSignal, acesse **Configurações** e preencha o e-mail e a Senha de App
-5. Use **Enviar teste** para verificar
-
----
-
-## Schema do banco de dados
+## Banco de dados
 
 ```
-usuarios              — usuários do sistema (login)
-categorias            — categorias de empresas
-empresas              — empresas com CNPJ e categoria
-documentos            — documentos por empresa (tipo, protocolo, vencimento, status)
-responsaveis          — pessoas que recebem notificações
-documento_responsavel — vínculo N:N entre documentos e responsáveis
-historico             — registro de alertas enviados e trâmites
-configuracoes         — configurações em chave/valor
+usuarios              usuários do sistema (login e nível)
+categorias            ramos das empresas
+empresas              empresas, com CNPJ, categoria e situação (ativa ou inativa)
+documentos            documentos de cada empresa (tipo, protocolo, vencimento, situação)
+responsaveis          pessoas que recebem os alertas
+documento_responsavel quem responde por cada documento
+historico             alertas enviados e alterações, com data e autor
+configuracoes         e-mail, horário e prazos dos alertas
 ```
 
 ---
 
 ## Limitações conhecidas
 
-- Sem proteção CSRF nos formulários — aceitável para aplicação local protegida por login; adicionaria Flask-WTF antes de qualquer deploy público
-- Senha de App armazenada em texto puro no banco — usaria `cryptography.fernet` para uso em produção
+- A senha de app do Gmail fica em texto no banco. Para uso fora da rede da empresa, o caminho seria cifrar com `cryptography.fernet`.
+- O servidor embutido do Flask atende bem a rede local; para acesso pela internet, o certo é colocar atrás de um servidor como Waitress ou Gunicorn, com HTTPS.
+
+---
+
+## Licença
+
+[MIT](LICENSE).
 
 ---
 
 ## Autor
 
-Desenvolvido por **Alyssom Fernandes** — primeiro projeto Python, construído para resolver um problema operacional real e demonstrar capacidade full-stack em lógica de backend, modelagem de banco de dados, tarefas agendadas e automação de e-mail.
+Desenvolvido por **Alyssom Fernandes**. Primeiro projeto em Python, feito para resolver um problema real de operação e mostrar o trabalho de ponta a ponta: regras de negócio, banco de dados, tarefas agendadas, e-mail e interface.

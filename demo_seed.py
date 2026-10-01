@@ -1,234 +1,235 @@
 """
-demo_seed.py — Popula o banco com dados fictícios para demonstração.
+demo_seed.py: dados fictícios para o modo demonstração.
 
-Execute UMA VEZ após inicializar o banco:
-    python demo_seed.py
+Grava SEMPRE num banco separado (demo.db), nunca no zen.db de uso real.
+O app chama popular() ao subir com --demo; também dá para rodar direto:
 
-Para resetar e recriar os dados demo:
-    python demo_seed.py --reset
+    python demo_seed.py            # recria o demo.db com o cenário completo
+    python demo_seed.py --vazio    # recria só com os usuários (estados vazios)
+
+As datas são relativas ao dia em que roda, então sempre há documentos
+vencidos, a renovar e em dia. O sorteio usa semente fixa: a mesma data
+gera sempre os mesmos dados.
 """
 
-import sys
 import os
-from datetime import date, timedelta
+import random
+import sys
+from datetime import date, datetime, timedelta
+
 from werkzeug.security import generate_password_hash
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import database
 from database import get_connection, init_db
 
-def delta(dias):
-    return (date.today() + timedelta(days=dias)).strftime('%Y-%m-%d')
+SENHA_DEMO = 'demo2024'
 
-CATEGORIAS = [
-    'Postos',
-    'Restaurantes',
-    'Holdings',
-    'Locadoras',
-    'Hotéis',
+USUARIOS = [
+    # (nome, email, nivel)
+    ('Administrador', 'admin@alertsignal.com',        'admin'),
+    ('Marina Duarte', 'visualizador@alertsignal.com', 'visualizador'),
 ]
+
+CATEGORIAS = ['Postos', 'Restaurantes', 'Holdings', 'Locadoras', 'Hotéis', 'TRRs', 'Autopeças']
+
+# Documentos que cada ramo costuma ter
+DOCS_POR_CATEGORIA = {
+    'Postos':       ['AVCB', 'Licença de Operação', 'LAC - Licença de Transportes', 'Alvará Municipal',
+                     'Alvará Sanitário', 'FEASPOL', 'IPTU', 'Alvará Policial'],
+    'Restaurantes': ['AVCB', 'Licença de Operação', 'Alvará Municipal', 'Alvará Sanitário', 'IPTU'],
+    'Holdings':     ['AVCB', 'Alvará Municipal', 'IPTU'],
+    'Locadoras':    ['AVCB', 'LAC - Licença de Transportes', 'Alvará Municipal', 'IPTU'],
+    'Hotéis':       ['AVCB', 'Alvará Municipal', 'Alvará Sanitário', 'CADASTUR', 'IPTU'],
+    'TRRs':         ['AVCB', 'Licença de Operação', 'LAC - Licença de Transportes', 'Alvará Municipal',
+                     'FEASPOL', 'Alvará Policial'],
+    'Autopeças':    ['AVCB', 'Alvará Municipal', 'IPTU'],
+}
 
 EMPRESAS = [
-    # (nome, cnpj, categoria)
-    ('Posto Vitória Ltda',          '12.345.678/0001-90', 'Postos'),
-    ('Posto Central Combustíveis',  '23.456.789/0001-01', 'Postos'),
-    ('Posto Estrela do Sul',        '34.567.890/0001-12', 'Postos'),
-    ('Restaurante Sabor & Arte',    '45.678.901/0001-23', 'Restaurantes'),
-    ('Churrascaria Gaúcha Ltda',    '56.789.012/0001-34', 'Restaurantes'),
-    ('Bistrô da Praça',             '67.890.123/0001-45', 'Restaurantes'),
-    ('Holding Empresarial Norte',   '78.901.234/0001-56', 'Holdings'),
-    ('Grupo Patrimonial Sul Ltda',  '89.012.345/0001-67', 'Holdings'),
-    ('Locadora Rápida Veículos',    '90.123.456/0001-78', 'Locadoras'),
-    ('Rent Express Ltda',           '01.234.567/0001-89', 'Locadoras'),
-    ('Hotel Panorama',              '11.222.333/0001-44', 'Hotéis'),
-    ('Pousada Serra Verde',         '22.333.444/0001-55', 'Hotéis'),
-]
-
-# Documentos por empresa: (tipo, protocolo, dias_para_vencimento)
-# dias negativo = já vencido, positivo = vence em X dias
-DOCUMENTOS_TEMPLATE = [
-    ('AVCB',                        'AVCB-2024-001',  -15),   # vencido
-    ('Licença de Operação',         'LO-2024-042',     8),    # crítico
-    ('LAC - Licença de Transportes','LAC-2023-789',   -45),   # vencido
-    ('Alvará Municipal',            'AM-2024-156',    25),    # renovar
-    ('Alvará Sanitário',            'AS-2024-203',    180),   # ok
-    ('FEASPOL',                     None,             -5),    # vencido
-    ('CADASTUR',                    'CAD-2024-077',   365),   # ok
-    ('IPTU',                        'IPTU-2024',      90),    # ok
-    ('Alvará Policial',             'AP-2024-033',    12),    # crítico
+    # (nome, cnpj, categoria, ativa, tem_documentos)
+    ('Posto Vitória Ltda',                                         '12.345.678/0001-90', 'Postos',       1, True),
+    ('Posto Central Combustíveis',                                 '23.456.789/0001-01', 'Postos',       1, True),
+    ('Auto Posto Rodovia BR-101 Combustíveis e Conveniência Ltda', '34.567.890/0001-12', 'Postos',       1, True),
+    ('Posto Estrela do Sul',                                       '45.678.901/0001-23', 'Postos',       1, True),
+    ('Restaurante Sabor & Arte',                                   '56.789.012/0001-34', 'Restaurantes', 1, True),
+    ("Cantina D'Ítalia",                                           '67.890.123/0001-45', 'Restaurantes', 1, True),
+    ('Churrascaria Gaúcha Ltda',                                   '78.901.234/0001-56', 'Restaurantes', 1, True),
+    ('Bistrô da Praça',                                            '89.012.345/0001-67', 'Restaurantes', 1, True),
+    ('Holding Empresarial Norte',                                  '90.123.456/0001-78', 'Holdings',     1, True),
+    ('Grupo Patrimonial Sul Ltda',                                 '01.234.567/0001-89', 'Holdings',     1, True),
+    ('Locadora Rápida Veículos',                                   '11.222.333/0001-44', 'Locadoras',    1, True),
+    ('Rent Express Ltda',                                          '22.333.444/0001-55', 'Locadoras',    1, True),
+    ('Hotel Panorama',                                             '33.444.555/0001-66', 'Hotéis',       1, True),
+    ('Pousada Serra Verde',                                        '44.555.666/0001-77', 'Hotéis',       1, True),
+    ('TRR Combustíveis do Vale',                                   '55.666.777/0001-88', 'TRRs',         1, True),
+    ('Nova Distribuidora TRR',                                     '66.777.888/0001-99', 'TRRs',         1, False),
+    ('Autopeças Avenida',                                          '77.888.999/0001-00', 'Autopeças',    0, True),
 ]
 
 RESPONSAVEIS = [
-    ('Carlos Mendes',     'carlos.mendes@demo.com'),
-    ('Ana Paula Souza',   'ana.paula@demo.com'),
-    ('Roberto Lima',      'roberto.lima@demo.com'),
-    ('Fernanda Costa',    'fernanda.costa@demo.com'),
+    ('Carlos Mendes',   'carlos.mendes@example.com'),
+    ('Ana Paula Souza', 'ana.souza@example.com'),
+    ('Roberto Lima',    'roberto.lima@example.com'),
+    ('Fernanda Costa',  'fernanda.costa@example.com'),
+    ('Juliana Ribeiro', 'juliana.ribeiro@example.com'),
 ]
 
-HISTORICO_ITEMS = [
-    ('email_enviado', 'Alerta enviado para Carlos Mendes (3 documentos)'),
-    ('email_enviado', 'Alerta enviado para Ana Paula Souza (1 documento)'),
-    ('tramite',       'Documento "AVCB" renovado — Posto Vitória Ltda'),
-    ('tramite',       'Protocolo atualizado (doc #3)'),
-    ('email_enviado', 'Alerta enviado para Roberto Lima (2 documentos)'),
-    ('tramite',       'Documento "Alvará Municipal" renovado — Restaurante Sabor & Arte'),
-    ('tramite',       'Protocolo atualizado (doc #7)'),
-    ('email_enviado', 'Alerta de teste enviado — configuração verificada'),
+PREFIXOS = {
+    'AVCB': 'AVCB', 'Licença de Operação': 'LO', 'LAC - Licença de Transportes': 'LAC',
+    'Alvará Municipal': 'AM', 'Alvará Sanitário': 'AS', 'FEASPOL': 'FSP',
+    'CADASTUR': 'CAD', 'IPTU': 'IPTU', 'Alvará Policial': 'AP',
+}
+
+OBSERVACOES = [
+    'Vistoria do Corpo de Bombeiros agendada.',
+    'Aguardando boleto da taxa na prefeitura.',
+    'Protocolo em análise na Vigilância Sanitária.',
+    'Renovação depende do laudo elétrico atualizado.',
+    'Pago em parcela única.',
+    'Contato na prefeitura: setor de licenciamento, ramal 214.',
+]
+
+# Faixas de prazo, em dias a partir de hoje, e o peso de cada uma
+FAIXAS = [
+    ((-120, -1), 15),   # vencido
+    ((0, 7),      6),   # crítico
+    ((8, 30),    14),   # a renovar
+    ((31, 90),   16),   # aviso antecipado
+    ((91, 540),  41),   # em dia
+    (None,        8),   # sem data (NÃO TEM)
 ]
 
 
-def resetar(conn):
-    tabelas = ['documento_responsavel', 'historico', 'documentos',
-               'responsaveis', 'empresas', 'categorias', 'usuarios']
-    for t in tabelas:
+def _status(dias):
+    if dias is None:
+        return 'NÃO TEM'
+    if dias < 0:
+        return 'VENCIDO'
+    if dias <= 30:
+        return 'RENOVAR'
+    return 'OK'
+
+
+def _limpar(conn):
+    for t in ['documento_responsavel', 'historico', 'documentos', 'responsaveis',
+              'empresas', 'categorias', 'usuarios', 'configuracoes']:
         conn.execute(f'DELETE FROM {t}')
-    conn.commit()
-    print('Banco resetado.')
+    # Recomeça a numeração, para que /empresa/1 seja sempre a mesma empresa
+    conn.execute('DELETE FROM sqlite_sequence')
 
 
-def seed():
+def popular(cenario='completo'):
+    """Apaga o banco de demonstração atual e grava o cenário pedido.
+
+    cenario: 'completo' (padrão) ou 'vazio' (só usuários e configurações).
+    """
+    if os.path.basename(database.DB_PATH).lower() == 'zen.db':
+        raise RuntimeError('demo_seed se recusa a gravar no zen.db (banco de uso real).')
+
     init_db()
     conn = get_connection()
+    _limpar(conn)
 
-    reset = '--reset' in sys.argv
-    if reset:
-        resetar(conn)
+    hoje = date.today()
+    sorteio = random.Random(hoje.toordinal())
 
-    # Verifica se já tem dados
-    total = conn.execute('SELECT COUNT(*) FROM empresas').fetchone()[0]
-    if total > 0 and not reset:
-        print('Banco já tem dados. Use --reset para recriar.')
+    senha = generate_password_hash(SENHA_DEMO)
+    for nome, email, nivel in USUARIOS:
+        conn.execute('INSERT INTO usuarios (nome, email, senha, nivel) VALUES (?,?,?,?)',
+                     (nome, email, senha, nivel))
+
+    for chave, valor in [('email_remetente', 'alertas@example.com'), ('email_senha_app', ''),
+                         ('horario_envio', '08:00'), ('alerta_dias_90', '90'),
+                         ('alerta_dias_30', '30'), ('alerta_dias_7', '7')]:
+        conn.execute('INSERT INTO configuracoes (chave, valor) VALUES (?,?)', (chave, valor))
+
+    if cenario == 'vazio':
+        conn.commit()
         conn.close()
         return
 
-    print('Populando banco com dados de demonstração...')
-
-    # ── Usuário admin demo ────────────────────────────────────────────────────
-    conn.execute('''
-        INSERT OR IGNORE INTO usuarios (nome, email, senha, nivel)
-        VALUES (?, ?, ?, ?)
-    ''', ('Administrador', 'admin@alertsignal.com',
-          generate_password_hash('demo2024'), 'admin'))
-
-    # ── Categorias ────────────────────────────────────────────────────────────
     cat_ids = {}
     for nome in CATEGORIAS:
-        conn.execute('INSERT OR IGNORE INTO categorias (nome) VALUES (?)', (nome,))
-        row = conn.execute('SELECT id FROM categorias WHERE nome=?', (nome,)).fetchone()
-        cat_ids[nome] = row['id']
-    print(f'  {len(CATEGORIAS)} categorias criadas')
+        cur = conn.execute('INSERT INTO categorias (nome) VALUES (?)', (nome,))
+        cat_ids[nome] = cur.lastrowid
 
-    # ── Empresas ──────────────────────────────────────────────────────────────
-    emp_ids = {}
-    for nome, cnpj, cat in EMPRESAS:
-        conn.execute(
-            'INSERT INTO empresas (nome, cnpj, categoria_id) VALUES (?,?,?)',
-            (nome, cnpj, cat_ids[cat])
-        )
-        emp_ids[nome] = conn.execute(
-            'SELECT id FROM empresas WHERE nome=?', (nome,)
-        ).fetchone()['id']
-    print(f'  {len(EMPRESAS)} empresas criadas')
-
-    # ── Documentos ────────────────────────────────────────────────────────────
-    doc_count = 0
-    doc_ids_por_empresa = {}
-    for emp_nome, emp_id in emp_ids.items():
-        doc_ids_por_empresa[emp_id] = []
-        # Distribui documentos de forma variada por empresa
-        # Nem toda empresa tem todos os documentos
-        cat_emp = next(c for n, _, c in EMPRESAS if n == emp_nome)
-
-        # Postos e Restaurantes têm mais documentos
-        qtd = len(DOCUMENTOS_TEMPLATE) if cat_emp in ('Postos', 'Restaurantes') else 5
-
-        for tipo, protocolo, dias in DOCUMENTOS_TEMPLATE[:qtd]:
-            vencimento = delta(dias)
-
-            if dias < 0:
-                status = 'VENCIDO'
-            elif dias <= 30:
-                status = 'RENOVAR'
-            else:
-                status = 'OK'
-
-            conn.execute(
-                '''INSERT INTO documentos
-                   (empresa_id, tipo, protocolo, vencimento, status)
-                   VALUES (?,?,?,?,?)''',
-                (emp_id, tipo, protocolo, vencimento, status)
-            )
-            doc_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-            doc_ids_por_empresa[emp_id].append(doc_id)
-            doc_count += 1
-
-    print(f'  {doc_count} documentos criados')
-
-    # ── Responsáveis ─────────────────────────────────────────────────────────
     resp_ids = []
     for nome, email in RESPONSAVEIS:
-        conn.execute(
-            'INSERT OR IGNORE INTO responsaveis (nome, email) VALUES (?,?)',
-            (nome, email)
-        )
-        row = conn.execute(
-            'SELECT id FROM responsaveis WHERE email=?', (email,)
-        ).fetchone()
-        resp_ids.append(row['id'])
-    print(f'  {len(RESPONSAVEIS)} responsáveis criados')
+        cur = conn.execute('INSERT INTO responsaveis (nome, email) VALUES (?,?)', (nome, email))
+        resp_ids.append(cur.lastrowid)
 
-    # ── Vínculos documento-responsável ────────────────────────────────────────
-    vinculos = 0
-    for i, (emp_nome, emp_id) in enumerate(emp_ids.items()):
-        docs = doc_ids_por_empresa[emp_id]
-        resp = resp_ids[i % len(resp_ids)]
-        for doc_id in docs[:3]:  # vincula até 3 docs por responsável
-            conn.execute(
-                'INSERT OR IGNORE INTO documento_responsavel VALUES (?,?)',
-                (doc_id, resp)
-            )
-            vinculos += 1
-    print(f'  {vinculos} vínculos documento-responsável criados')
+    faixas, pesos = zip(*FAIXAS)
+    documentos = []   # (doc_id, empresa_id, empresa, tipo)
+    for i, (nome, cnpj, cat, ativa, tem_docs) in enumerate(EMPRESAS):
+        cur = conn.execute('INSERT INTO empresas (nome, cnpj, categoria_id, ativa) VALUES (?,?,?,?)',
+                           (nome, cnpj, cat_ids[cat], ativa))
+        emp_id = cur.lastrowid
+        if not tem_docs:
+            continue
+        principal = resp_ids[i % len(resp_ids)]
+        for tipo in DOCS_POR_CATEGORIA[cat]:
+            faixa = sorteio.choices(faixas, pesos)[0]
+            dias = None if faixa is None else sorteio.randint(*faixa)
+            vencimento = None if dias is None else (hoje + timedelta(days=dias)).isoformat()
+            protocolo = None
+            if sorteio.random() > 0.15:
+                ano = (hoje + timedelta(days=(dias or 0) - 365)).year
+                protocolo = f'{PREFIXOS[tipo]}-{ano}-{sorteio.randint(10, 9999):04d}'
+            obs = sorteio.choice(OBSERVACOES) if sorteio.random() < 0.2 else None
+            cur = conn.execute(
+                'INSERT INTO documentos (empresa_id, tipo, protocolo, vencimento, status, observacoes) '
+                'VALUES (?,?,?,?,?,?)', (emp_id, tipo, protocolo, vencimento, _status(dias), obs))
+            doc_id = cur.lastrowid
+            documentos.append((doc_id, emp_id, nome, tipo))
 
-    # ── Histórico ─────────────────────────────────────────────────────────────
-    for tipo, descricao in HISTORICO_ITEMS:
-        conn.execute(
-            'INSERT INTO historico (tipo, descricao) VALUES (?,?)',
-            (tipo, descricao)
-        )
-    print(f'  {len(HISTORICO_ITEMS)} registros de histórico criados')
+            sorte = sorteio.random()
+            if sorte < 0.08:
+                continue   # documento ainda sem responsável
+            conn.execute('INSERT INTO documento_responsavel VALUES (?,?)', (doc_id, principal))
+            if sorte > 0.7:
+                outro = sorteio.choice([r for r in resp_ids if r != principal])
+                conn.execute('INSERT INTO documento_responsavel VALUES (?,?)', (doc_id, outro))
 
-    # ── Configurações padrão ──────────────────────────────────────────────────
-    defaults = [
-        ('email_remetente', ''),
-        ('email_senha_app', ''),
-        ('horario_envio',   '08:00'),
-        ('alerta_dias_90',  '90'),
-        ('alerta_dias_30',  '30'),
-        ('alerta_dias_7',   '7'),
-    ]
-    for chave, valor in defaults:
-        conn.execute(
-            'INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES (?,?)',
-            (chave, valor)
-        )
+    # Histórico dos últimos 75 dias, do mais antigo para o mais novo
+    admin_id = 1
+    eventos = []
+    for _ in range(64):
+        quando = datetime.combine(hoje - timedelta(days=sorteio.randint(0, 75)), datetime.min.time()) \
+            + timedelta(hours=sorteio.randint(8, 18), minutes=sorteio.randint(0, 59))
+        doc_id, emp_id, empresa, tipo = sorteio.choice(documentos)
+        tipo_evento = sorteio.choices(['email', 'renovado', 'protocolo', 'editado', 'vinculo'],
+                                      [30, 20, 20, 15, 15])[0]
+        if tipo_evento == 'email':
+            nome = sorteio.choice(RESPONSAVEIS)[0]
+            qtd = sorteio.randint(1, 4)
+            eventos.append((quando, 'email_enviado',
+                            f'Alerta enviado para {nome} ({qtd} documento{"s" if qtd > 1 else ""})',
+                            None, None, None))
+            continue
+        texto = {
+            'renovado':  f'Documento "{tipo}" renovado: {empresa}',
+            'protocolo': f'Protocolo atualizado: {tipo}, {empresa}',
+            'editado':   f'Documento "{tipo}" editado: {empresa}',
+            'vinculo':   f'{sorteio.choice(RESPONSAVEIS)[0]} agora responde por {tipo}, {empresa}',
+        }[tipo_evento]
+        eventos.append((quando, 'tramite', texto, emp_id, doc_id, admin_id))
+
+    for quando, tipo, texto, emp_id, doc_id, uid in sorted(eventos, key=lambda e: e[0]):
+        conn.execute('INSERT INTO historico (tipo, descricao, empresa_id, documento_id, usuario_id, criado_em) '
+                     'VALUES (?,?,?,?,?,?)', (tipo, texto, emp_id, doc_id, uid, quando.strftime('%Y-%m-%d %H:%M:%S')))
 
     conn.commit()
     conn.close()
 
-    print('\nDemo populado com sucesso!')
-    print('Login: admin@alertsignal.com  |  Senha: demo2024')
-    print('\nEstatísticas:')
-
-    conn2 = get_connection()
-    vencidos = conn2.execute("SELECT COUNT(*) FROM documentos WHERE status='VENCIDO'").fetchone()[0]
-    renovar  = conn2.execute("SELECT COUNT(*) FROM documentos WHERE status='RENOVAR'").fetchone()[0]
-    ok       = conn2.execute("SELECT COUNT(*) FROM documentos WHERE status='OK'").fetchone()[0]
-    conn2.close()
-
-    print(f'  Vencidos:  {vencidos}')
-    print(f'  Renovar:   {renovar}')
-    print(f'  OK:        {ok}')
-
 
 if __name__ == '__main__':
-    seed()
+    database.usar_banco(os.environ.get('ALERTSIGNAL_BANCO_DEMO')
+                        or os.path.join(database.PASTA, 'demo.db'))
+    popular('vazio' if '--vazio' in sys.argv else 'completo')
+    conn = get_connection()
+    contagem = dict(conn.execute('SELECT status, COUNT(*) FROM documentos GROUP BY status').fetchall())
+    conn.close()
+    print(f'Banco de demonstração gravado em {database.DB_PATH}')
+    print(f'Documentos por status: {contagem}')
+    print(f'Entrar: admin@alertsignal.com ou visualizador@alertsignal.com, senha {SENHA_DEMO}')

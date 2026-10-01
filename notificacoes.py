@@ -1,10 +1,11 @@
 """
-notificacoes.py — Verifica vencimentos e envia e-mails de alerta.
+notificacoes.py: verifica vencimentos e envia e-mails de alerta.
 
 smtplib é a biblioteca nativa do Python para enviar e-mails via SMTP.
 email.mime é usada para montar o conteúdo do e-mail (texto, html, etc).
 """
 
+import os
 import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
@@ -20,20 +21,39 @@ def calcular_dias(vencimento_str):
     """
     if not vencimento_str:
         return None
-    venc = datetime.strptime(vencimento_str, '%Y-%m-%d').date()
+    try:
+        venc = datetime.strptime(vencimento_str, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
     return (venc - date.today()).days
 
 
-def recalcular_status(dias):
+def recalcular_status(dias, limite_renovar=None):
     """Recalcula o status com base nos dias atuais (ignora o status da planilha)."""
     if dias is None:
         return 'NÃO TEM'
     if dias < 0:
         return 'VENCIDO'
-    limite_renovar = int(get_config('alerta_dias_30') or 30)
+    if limite_renovar is None:
+        limite_renovar = int(get_config('alerta_dias_30') or 30)
     if dias <= limite_renovar:
         return 'RENOVAR'
     return 'OK'
+
+
+def nivel_alerta(dias):
+    """Nível do alerta pelas regras configuradas (None = fora de qualquer janela)."""
+    if dias is None:
+        return None
+    if dias < 0:
+        return 'vencido'
+    if dias <= int(get_config('alerta_dias_7') or 7):
+        return 'critico'
+    if dias <= int(get_config('alerta_dias_30') or 30):
+        return 'renovar'
+    if dias <= int(get_config('alerta_dias_90') or 90):
+        return 'antecipado'
+    return None
 
 
 def buscar_alertas():
@@ -43,9 +63,6 @@ def buscar_alertas():
     """
     conn = get_connection()
 
-    limite_90 = int(get_config('alerta_dias_90') or 90)
-    limite_30 = int(get_config('alerta_dias_30') or 30)
-    limite_7  = int(get_config('alerta_dias_7')  or 7)
 
     # Busca documentos COM data de vencimento e com responsáveis cadastrados
     # JOIN conecta tabelas relacionadas pela chave estrangeira
@@ -64,6 +81,7 @@ def buscar_alertas():
         JOIN responsaveis r ON r.id = dr.responsavel_id
         WHERE d.vencimento IS NOT NULL
           AND r.ativo = 1
+          AND e.ativa = 1
         ORDER BY d.vencimento
     ''').fetchall()
 
@@ -76,15 +94,7 @@ def buscar_alertas():
         if dias is None:
             continue
 
-        nivel = None
-        if dias < 0:
-            nivel = 'vencido'
-        elif dias <= limite_7:
-            nivel = 'critico'
-        elif dias <= limite_30:
-            nivel = 'renovar'
-        elif dias <= limite_90:
-            nivel = 'antecipado'
+        nivel = nivel_alerta(dias)
 
         if nivel is None:
             continue  # fora de qualquer janela de alerta
@@ -108,87 +118,152 @@ def buscar_alertas():
     return list(alertas.values())
 
 
-def montar_html(nome_destinatario, itens):
-    """Monta o corpo do e-mail em HTML com visual limpo."""
+NIVEIS_EMAIL = [
+    # nível, título do grupo, cor do texto, cor do fundo, rótulo da etiqueta
+    ('vencido',    'Vencidos',                 '#B42318', '#FDECEC', 'Vencido'),
+    ('critico',    'Vencem nos próximos dias', '#B54708', '#FFEAD5', 'Vence em breve'),
+    ('renovar',    'Hora de renovar',          '#8A5300', '#FEF4E2', 'Renovar'),
+    ('antecipado', 'Avisos antecipados',       '#067647', '#E8F7EF', 'Aviso antecipado'),
+]
 
-    cores = {
-        'vencido':    ('#D94F4F', '#2D0000', 'Vencido'),
-        'critico':    ('#D4890A', '#2D1A00', 'Vencimento iminente'),
-        'renovar':    ('#D4890A', '#2D1A00', 'Renovar'),
-        'antecipado': ('#1A8C66', '#001A0F', 'Aviso antecipado'),
-    }
 
-    linhas = ''
-    for item in itens:
-        cor_texto, _, rotulo = cores.get(item['nivel'], ('#888', '#111', ''))
-        dias_texto = (
-            f"Vencido há {abs(item['dias'])} dia(s)"
-            if item['dias'] < 0
-            else f"Vence em {item['dias']} dia(s)"
-        )
-        linhas += f'''
+def _prazo(dias):
+    if dias < -1: return f'Vencido há {abs(dias)} dias'
+    if dias == -1: return 'Venceu ontem'
+    if dias == 0: return 'Vence hoje'
+    if dias == 1: return 'Vence amanhã'
+    return f'Vence em {dias} dias'
+
+
+def _data_br(iso):
+    try: return datetime.strptime(iso, '%Y-%m-%d').strftime('%d/%m/%Y')
+    except (TypeError, ValueError): return iso or ''
+
+
+def _resumo(total):
+    return f'{total}\u00a0documento precisa' if total == 1 else f'{total}\u00a0documentos precisam'
+
+
+def montar_html(nome_destinatario, itens, url_sistema=None):
+    """Monta o corpo do e-mail em HTML.
+
+    Fundo claro, tabelas e cores também em atributos (bgcolor), que o Gmail,
+    o Outlook e os apps de celular mostram do mesmo jeito. Todo texto vindo
+    do banco é escapado antes de entrar no HTML. Com url_sistema, o e-mail
+    ganha um botão para abrir o AlertSignal.
+    """
+    from html import escape
+
+    grupos = ''
+    for nivel, titulo, cor, fundo, rotulo in NIVEIS_EMAIL:
+        doc_nivel = [i for i in itens if i['nivel'] == nivel]
+        if not doc_nivel:
+            continue
+        grupos += f"""
+          <tr><td colspan="2" style="padding:18px 14px 6px;font-size:12px;font-weight:700;color:{cor};text-transform:uppercase;letter-spacing:.6px">{titulo} ({len(doc_nivel)})</td></tr>"""
+        for item in doc_nivel:
+            grupos += f"""
+          <tr>
+            <td style="padding:12px 14px;border-top:1px solid #EAEAEE;vertical-align:top">
+              <div style="font-size:14px;font-weight:600;color:#111113">{escape(item["documento"])}</div>
+              <div style="font-size:13px;color:#5B5B63;margin-top:2px">{escape(item["empresa"])}</div>
+            </td>
+            <td align="right" style="padding:12px 14px;border-top:1px solid #EAEAEE;vertical-align:top;white-space:nowrap">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="right"><tr>
+                <td bgcolor="{fundo}" style="background:{fundo};color:{cor};font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px">{rotulo}</td>
+              </tr></table>
+              <div style="clear:both;font-size:13px;color:#111113;padding-top:6px">{escape(_prazo(item["dias"]))}</div>
+              <div style="font-size:12px;color:#5B5B63;margin-top:2px">{_data_br(item["vencimento"])}</div>
+            </td>
+          </tr>"""
+
+    if not itens:
+        grupos = """
+          <tr><td colspan="2" style="padding:16px 14px;border-top:1px solid #EAEAEE;font-size:13px;color:#5B5B63">
+            Nenhum documento precisa de atenção hoje.
+          </td></tr>"""
+
+    botao = ''
+    if url_sistema:
+        botao = f"""
         <tr>
-          <td style="padding:10px 12px;border-bottom:1px solid #1E1E1E;font-size:13px">{item["empresa"]}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #1E1E1E;font-size:13px">{item["documento"]}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #1E1E1E;font-size:13px">{item["vencimento"]}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #1E1E1E;font-size:13px">
-            <span style="color:{cor_texto};font-weight:600">{dias_texto}</span>
+          <td style="padding:4px 24px 24px">
+            <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+              <td bgcolor="#E03030" style="background:#E03030;border-radius:8px">
+                <a href="{escape(url_sistema)}" style="display:inline-block;padding:11px 20px;font-size:14px;font-weight:700;color:#FFFFFF;text-decoration:none">Abrir no AlertSignal</a>
+              </td>
+            </tr></table>
           </td>
-          <td style="padding:10px 12px;border-bottom:1px solid #1E1E1E;font-size:12px;color:{cor_texto}">{rotulo}</td>
+        </tr>"""
+
+    total = len(itens)
+    previa = f'{_resumo(total)} de atenção.' if total else 'Nenhum documento precisa de atenção hoje.'
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light"><title>AlertSignal</title></head>
+<body style="margin:0;padding:0;background:#F3F3F5;font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#111113">
+  <div style="display:none;max-height:0;overflow:hidden">{escape(previa)}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#F3F3F5" style="background:#F3F3F5;padding:24px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FFFFFF"
+             style="max-width:620px;background:#FFFFFF;border:1px solid #E2E2E6;border-top:4px solid #E03030;border-radius:12px">
+        <tr>
+          <td style="padding:22px 24px 6px">
+            <div style="font-size:18px;font-weight:700;color:#111113">AlertSignal</div>
+            <div style="font-size:12px;color:#5B5B63;margin-top:2px">Controle de alvarás e licenças</div>
+          </td>
         </tr>
-        '''
-
-    return f'''
-    <html><body style="margin:0;padding:0;background:#080808;font-family:'Segoe UI',Arial,sans-serif;color:#EDEAE5">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:32px 0">
-      <tr><td align="center">
-        <table width="620" cellpadding="0" cellspacing="0"
-               style="background:#101010;border:1px solid #1E1E1E;border-radius:8px;overflow:hidden">
-          <tr>
-            <td style="background:#8B0000;padding:20px 28px">
-              <span style="font-size:18px;font-weight:600;color:#fff">Grupo Zen</span>
-              <span style="font-size:12px;color:rgba(255,255,255,.6);display:block;margin-top:2px">
-                Controle de Alvarás e Licenças
-              </span>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:24px 28px">
-              <p style="font-size:14px;margin:0 0 20px">Olá, <strong>{nome_destinatario}</strong>.</p>
-              <p style="font-size:13px;color:#888;margin:0 0 20px">
-                Abaixo estão os documentos que precisam de atenção hoje:
-              </p>
-              <table width="100%" cellpadding="0" cellspacing="0"
-                     style="border:1px solid #1E1E1E;border-radius:6px;overflow:hidden">
-                <thead>
-                  <tr style="background:#171717">
-                    <th style="padding:8px 12px;font-size:11px;text-align:left;color:#555;font-weight:500;text-transform:uppercase;letter-spacing:.5px">Empresa</th>
-                    <th style="padding:8px 12px;font-size:11px;text-align:left;color:#555;font-weight:500;text-transform:uppercase;letter-spacing:.5px">Documento</th>
-                    <th style="padding:8px 12px;font-size:11px;text-align:left;color:#555;font-weight:500;text-transform:uppercase;letter-spacing:.5px">Vencimento</th>
-                    <th style="padding:8px 12px;font-size:11px;text-align:left;color:#555;font-weight:500;text-transform:uppercase;letter-spacing:.5px">Prazo</th>
-                    <th style="padding:8px 12px;font-size:11px;text-align:left;color:#555;font-weight:500;text-transform:uppercase;letter-spacing:.5px">Status</th>
-                  </tr>
-                </thead>
-                <tbody>{linhas}</tbody>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 28px;border-top:1px solid #1E1E1E">
-              <p style="font-size:11px;color:#444;margin:0">
-                Mensagem automática — AlertSignal · Grupo Zen
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-    </table>
-    </body></html>
-    '''
+        <tr>
+          <td style="padding:16px 24px 0">
+            <p style="font-size:15px;margin:0 0 6px">Olá, <strong>{escape(nome_destinatario)}</strong>.</p>
+            <p style="font-size:14px;color:#3F3F46;margin:0">{previa}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 10px 14px">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{grupos}
+            </table>
+          </td>
+        </tr>{botao}
+        <tr>
+          <td bgcolor="#FAFAFB" style="padding:14px 24px;background:#FAFAFB;border-top:1px solid #EAEAEE;border-radius:0 0 12px 12px">
+            <p style="font-size:12px;color:#5B5B63;margin:0">
+              Mensagem automática do AlertSignal. Você recebe porque está cadastrado como responsável por estes documentos.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
 
 
-def enviar_email(destinatario_email, destinatario_nome, assunto, corpo_html):
+def montar_texto(nome_destinatario, itens, url_sistema=None):
+    """Versão em texto simples do mesmo e-mail (programas sem HTML e filtros de spam)."""
+    linhas = [f'Olá, {nome_destinatario}.', '']
+    if not itens:
+        linhas.append('Nenhum documento precisa de atenção hoje.')
+    else:
+        linhas.append(f'{_resumo(len(itens))} de atenção.'.replace('\u00a0', ' '))
+        for nivel, titulo, *_ in NIVEIS_EMAIL:
+            doc_nivel = [i for i in itens if i['nivel'] == nivel]
+            if not doc_nivel:
+                continue
+            linhas += ['', f'{titulo} ({len(doc_nivel)})']
+            for i in doc_nivel:
+                linhas.append(f"- {i['documento']}, {i['empresa']}: {_prazo(i['dias'])} ({_data_br(i['vencimento'])})")
+    if url_sistema:
+        linhas += ['', f'Abrir no AlertSignal: {url_sistema}']
+    linhas += ['', 'Mensagem automática do AlertSignal.']
+    return '\n'.join(linhas)
+
+
+def enviar_email(destinatario_email, destinatario_nome, assunto, corpo_html, corpo_texto=None):
     """Envia um e-mail via Gmail SMTP com SSL."""
+    if os.environ.get('ALERTSIGNAL_DEMO') == '1':
+        print(f"[demonstração] e-mail para {destinatario_email} não enviado.")
+        return False
+
     remetente = get_config('email_remetente')
     senha     = get_config('email_senha_app')
 
@@ -198,10 +273,13 @@ def enviar_email(destinatario_email, destinatario_nome, assunto, corpo_html):
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = assunto
-    msg['From']    = f'Grupo Zen Alvarás <{remetente}>'
+    msg['From']    = f'AlertSignal <{remetente}>'
     msg['To']      = destinatario_email
 
-    # Anexa o corpo como HTML
+    # Texto simples primeiro e HTML depois: o programa de e-mail mostra a
+    # última versão que souber exibir
+    if corpo_texto:
+        msg.attach(MIMEText(corpo_texto, 'plain', 'utf-8'))
     msg.attach(MIMEText(corpo_html, 'html', 'utf-8'))
 
     try:
@@ -243,11 +321,13 @@ def executar_verificacao_diaria():
 
     for destinatario in alertas:
         qtd = len(destinatario['itens'])
-        assunto = f"Grupo Zen — {qtd} documento(s) requerem atenção"
-        corpo = montar_html(destinatario['nome'], destinatario['itens'])
+        assunto = f"AlertSignal: {qtd} documento{'s' if qtd > 1 else ''} precisa{'m' if qtd > 1 else ''} de atenção"
+        url = get_config('url_sistema')
+        corpo = montar_html(destinatario['nome'], destinatario['itens'], url)
+        texto = montar_texto(destinatario['nome'], destinatario['itens'], url)
 
-        ok = enviar_email(destinatario['email'], destinatario['nome'], assunto, corpo)
+        ok = enviar_email(destinatario['email'], destinatario['nome'], assunto, corpo, texto)
 
         if ok:
-            desc = f"Alerta enviado para {destinatario['nome']} ({qtd} documento(s))"
+            desc = f"Alerta enviado para {destinatario['nome']} ({qtd}\u00a0documento{'s' if qtd > 1 else ''})"
             registrar_historico(desc)

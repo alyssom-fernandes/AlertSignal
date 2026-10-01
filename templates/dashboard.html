@@ -1,76 +1,218 @@
 {% extends 'layout.html' %}
 {% set active = 'dashboard' %}
-{% block title %}Dashboard{% endblock %}
-{% block page %}
-<div class="pg-head">
-  <h1>Visão Geral</h1>
-  <div class="sub">{{ hoje }}</div>
-</div>
+{% block title %}Visão geral{% endblock %}
 
-<div class="sec-head">Resumo de status</div>
-<div class="pill-row" style="margin-bottom:28px">
-  <div class="pill p-danger"><div class="pill-left"><i class="ti ti-alert-triangle"></i> Documentos vencidos</div><span class="pill-num">{{ stats['VENCIDO'] }}</span></div>
-  <div class="pill p-warn"><div class="pill-left"><i class="ti ti-clock-exclamation"></i> A renovar em breve</div><span class="pill-num">{{ stats['RENOVAR'] }}</span></div>
-  <div class="pill p-ok"><div class="pill-left"><i class="ti ti-circle-check"></i> Em dia</div><span class="pill-num">{{ stats['OK'] }}</span></div>
-  <div class="pill p-neutral"><div class="pill-left"><i class="ti ti-building-store"></i> Empresas cadastradas</div><span class="pill-num">{{ total_empresas }}</span></div>
-</div>
-
-<div class="sec-head">Atenção urgente</div>
-{% if urgentes %}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;margin-bottom:{% if total_urgentes > 20 %}12px{% else %}28px{% endif %}">
-  {% for u in urgentes %}
-  <div class="alert-item {{ 'av' if u.status == 'VENCIDO' else 'rn' }}">
-    <div class="ai-top">
-      <div class="ai-info">
-        <div class="ai-name">{{ u.empresa }}</div>
-        <div class="ai-doc"><i class="ti ti-file-certificate" style="font-size:10px"></i> {{ u.tipo }}</div>
-      </div>
-      {% if u.dias < 0 %}
-        <span class="prazo-badge prazo-danger">Vencido há {{ u.dias|abs }}d</span>
-      {% else %}
-        <span class="prazo-badge prazo-warn">Vence em {{ u.dias }}d</span>
-      {% endif %}
-    </div>
-    <div class="ai-bot">
-      <span class="ai-date">venc. {{ u.vencimento|formatar_data }}</span>
-      <a href="/empresa/{{ u.id }}" style="font-size:10px;color:var(--acc2);font-weight:600">Ver documento →</a>
-    </div>
+{% macro cartao_urgente(u) %}
+<a class="alert-item {{ 'av' if u.status == 'VENCIDO' else 'rn' }}" href="{{ url_for('empresa_detalhe', emp_id=u.id) }}#doc-{{ u.doc_id }}">
+  <div class="ai-info">
+    <div class="ai-name">{{ u.empresa }}</div>
+    <div class="ai-doc"><i class="ti ti-file-certificate" aria-hidden="true"></i> {{ u.tipo }}</div>
   </div>
-  {% endfor %}
+  <div class="ai-bot">
+    <span class="prazo {{ 'txt-danger' if u.dias < 0 else 'txt-warn' }}">{{ u.dias|prazo_texto }}</span>
+    <span class="ai-date">{{ u.vencimento|formatar_data }} <i class="ti ti-arrow-right ai-seta" aria-hidden="true"></i></span>
+  </div>
+</a>
+{% endmacro %}
+
+{% block page %}
+<div class="rel-cabecalho" aria-hidden="true">
+  <div><div class="titulo">AlertSignal · Visão geral</div><div>{{ total_empresas }} empresas ativas</div></div>
+  <div class="meta">{{ hoje|data_extenso }}<br>Impresso em {{ now.strftime('%d/%m/%Y às %H:%M') }}</div>
 </div>
 
-{% if total_urgentes > 20 %}
-<div style="margin-bottom:28px;padding:10px 14px;background:var(--warn-dim);border:1px solid var(--warn-border);border-radius:var(--r2);display:flex;align-items:center;justify-content:space-between">
-  <span style="font-size:12px;color:var(--warn);font-weight:600">
-    <i class="ti ti-info-circle"></i>
-    Exibindo 20 de {{ total_urgentes }} documentos críticos
-  </span>
-  <a href="{{ url_for('empresas') }}" style="font-size:11px;color:var(--warn);font-weight:700">
-    Ver todos →
+<div class="pg-head">
+  <div>
+    <h1>Visão geral</h1>
+    <div class="sub">{{ hoje|data_extenso }}{% if total_empresas %} · {{ total_empresas }} empresa{{ 's' if total_empresas != 1 }} ativa{{ 's' if total_empresas != 1 }}{% endif %}</div>
+  </div>
+  {% if total_empresas %}
+  <div class="pg-acoes">
+    <a class="btn" href="{{ url_for('relatorio', status='atencao') }}"><i class="ti ti-report" aria-hidden="true"></i> Relatório</a>
+    <a class="btn" href="{{ url_for('exportar', fmt='xlsx') }}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> Exportar Excel</a>
+  </div>
+  {% endif %}
+</div>
+
+{% if not total_empresas %}
+<section class="secao">
+  <div class="vazio grande">
+    <i class="ti ti-building-plus" aria-hidden="true"></i>
+    <strong>Nenhuma empresa cadastrada ainda</strong>
+    <p>Cadastre as empresas e os documentos de cada uma. O AlertSignal acompanha os vencimentos e avisa os responsáveis por e&#8209;mail.</p>
+    {% if eh_admin %}<a class="btn btn-primary" href="{{ url_for('cadastros') }}"><i class="ti ti-plus" aria-hidden="true"></i> Cadastrar empresa</a>{% endif %}
+  </div>
+</section>
+{% else %}
+
+<h2 class="sr-only">Resumo de status</h2>
+<div class="tiles">
+  <a class="tile t-danger" href="{{ url_for('relatorio', status='vencidos') }}">
+    <span class="tile-rotulo"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Vencidos</span>
+    <span class="tile-valor">{{ stats['VENCIDO'] }}</span>
+    <span class="tile-dica">Renovar já</span>
+  </a>
+  <a class="tile t-warn" href="{{ url_for('relatorio', status='renovar') }}">
+    <span class="tile-rotulo"><i class="ti ti-clock-exclamation" aria-hidden="true"></i> A renovar</span>
+    <span class="tile-valor">{{ stats['RENOVAR'] }}</span>
+    <span class="tile-dica">Próximos {{ limite_renovar }} dias</span>
+  </a>
+  <a class="tile t-ok" href="{{ url_for('relatorio', status='em_dia') }}">
+    <span class="tile-rotulo"><i class="ti ti-circle-check" aria-hidden="true"></i> Em dia</span>
+    <span class="tile-valor">{{ stats['OK'] }}</span>
+    <span class="tile-dica">Depois de {{ limite_renovar }} dias</span>
+  </a>
+  <a class="tile" href="{{ url_for('relatorio', status='sem_data') }}">
+    <span class="tile-rotulo"><i class="ti ti-calendar-off" aria-hidden="true"></i> Sem data</span>
+    <span class="tile-valor">{{ stats['NÃO TEM'] }}</span>
+    <span class="tile-dica">{{ 'Cadastre o vencimento' if stats['NÃO TEM'] else 'Todos têm vencimento' }}</span>
   </a>
 </div>
+
+{% set total_meses = meses|sum(attribute='total') %}
+<section class="cartao secao" aria-labelledby="grafico-titulo">
+  <div class="grafico-cab">
+    <div>
+      <h2 id="grafico-titulo"><i class="ti ti-chart-bar" aria-hidden="true"></i> Vencimentos nos próximos 12 meses</h2>
+      <p class="descr" style="margin:0">{{ total_meses }} documento{{ 's' if total_meses != 1 }} por mês de vencimento. Os já vencidos não entram aqui.</p>
+    </div>
+    {% if total_meses %}
+    <div class="legenda" aria-hidden="true">
+      <span><i style="background:var(--serie-2)"></i> A renovar (até {{ limite_renovar }} dias)</span>
+      <span><i style="background:var(--serie-1)"></i> Mais adiante</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if total_meses %}
+  <div class="grafico" id="grafico-meses">
+    <div class="colunas" role="list" aria-label="Documentos por mês de vencimento">
+      {% for m in meses %}
+      {% set adiante = m.total - m.urgentes %}
+      <div class="col" role="listitem" tabindex="0"
+           data-mes="{{ m.extenso }}" data-urgentes="{{ m.urgentes }}" data-adiante="{{ adiante }}"
+           aria-label="{{ m.extenso }}: {{ m.total }} documento{{ 's' if m.total != 1 }}{% if m.urgentes %}, {{ m.urgentes }} a renovar{% endif %}">
+        {% if m.total %}<span class="col-valor">{{ m.total }}</span>{% endif %}
+        <span class="pilha" style="height:{{ (m.total / max_mes * 100)|round(1) }}%">
+          {% if adiante %}<span class="seg serie-1" style="flex:{{ adiante }}"></span>{% endif %}
+          {% if m.urgentes %}<span class="seg serie-2" style="flex:{{ m.urgentes }}"></span>{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="meses" aria-hidden="true">
+      {% for m in meses %}<span>{{ m.rotulo }}{% if m.rotulo == 'jan' or loop.first %}<small>{{ m.ano % 100 }}</small>{% endif %}</span>{% endfor %}
+    </div>
+    <div class="dica-grafico" id="dica-grafico" aria-hidden="true"></div>
+  </div>
+  <details class="ver-tabela">
+    <summary><i class="ti ti-table" aria-hidden="true"></i> Ver em tabela</summary>
+    <table class="tabela-simples">
+      <thead><tr><th scope="col">Mês</th><th scope="col" class="num">A renovar</th><th scope="col" class="num">Adiante</th><th scope="col" class="num">Total</th></tr></thead>
+      <tbody>
+        {% for m in meses %}
+        <tr>
+          <td><span class="mes-longo">{{ m.extenso }}</span><span class="mes-curto">{{ m.rotulo }}/{{ m.ano % 100 }}</span></td>
+          <td class="num {{ 'zero' if not m.urgentes }}">{{ m.urgentes }}</td>
+          <td class="num {{ 'zero' if not (m.total - m.urgentes) }}">{{ m.total - m.urgentes }}</td>
+          <td class="num {{ 'zero' if not m.total }}"><strong>{{ m.total }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% else %}
+  <div class="vazio compacto"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Nenhum documento vence nos próximos 12 meses.</span></div>
+  {% endif %}
+</section>
+
+<section class="secao" aria-labelledby="urgentes-titulo">
+  <h2 class="sec-head" id="urgentes-titulo">Atenção urgente
+    {% if total_urgentes > vencidos|length + renovar|length %}<a href="{{ url_for('relatorio', status='atencao') }}">Ver todos ({{ total_urgentes }})</a>{% endif %}
+  </h2>
+  {% if vencidos or renovar %}
+    {% if vencidos %}
+    <h3 class="sec-sub"><span class="badge badge-danger">{{ stats['VENCIDO'] }}</span> Vencidos, dos mais atrasados</h3>
+    <div class="alert-grid">{% for u in vencidos %}{{ cartao_urgente(u) }}{% endfor %}</div>
+    {% endif %}
+    {% if renovar %}
+    <h3 class="sec-sub"><span class="badge badge-warn">{{ stats['RENOVAR'] }}</span> A renovar, dos que vencem antes</h3>
+    <div class="alert-grid">{% for u in renovar %}{{ cartao_urgente(u) }}{% endfor %}</div>
+    {% endif %}
+  {% else %}
+  <div class="vazio compacto"><i class="ti ti-circle-check" aria-hidden="true"></i><span>Nenhum documento vencido ou vencendo nos próximos {{ limite_renovar }} dias.</span></div>
+  {% endif %}
+</section>
 {% endif %}
 
-{% else %}
-<div style="font-size:13px;color:var(--text2);padding:12px 0;margin-bottom:28px">Nenhum documento urgente no momento.</div>
-{% endif %}
-
-<div class="sec-head">Histórico recente</div>
-<div class="hist-list">
+<section class="secao" aria-labelledby="hist-titulo">
+  <h2 class="sec-head" id="hist-titulo">Histórico recente
+    {% if historico %}<a href="{{ url_for('historico') }}">Ver histórico completo</a>{% endif %}
+  </h2>
   {% if historico %}
+  <div class="hist-list">
     {% for h in historico %}
     <div class="hist-item">
-      <div class="hist-icon" style="background:var(--acc-dim);color:var(--acc2)">
+      <div class="hist-icon {{ 'h-email' if h.tipo == 'email_enviado' else 'h-tramite' }}" aria-hidden="true">
         <i class="ti ti-{{ 'mail' if h.tipo == 'email_enviado' else 'edit' }}"></i>
       </div>
       <div class="hist-info">
         <strong>{{ h.descricao }}</strong>
-        <span>{{ h.criado_em }}</span>
+        <span>{{ h.criado_em|formatar_data_hora }}{% if h.usuario_nome %} · {{ h.usuario_nome }}{% endif %}</span>
       </div>
     </div>
     {% endfor %}
+  </div>
   {% else %}
-    <div style="font-size:13px;color:var(--text2);padding:12px 0">Nenhum evento registrado ainda.</div>
+  <div class="vazio compacto"><i class="ti ti-history" aria-hidden="true"></i><span>Nenhum evento registrado ainda. Renovações, edições e alertas enviados aparecem aqui.</span></div>
   {% endif %}
-</div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const grafico = document.getElementById('grafico-meses');
+  if (!grafico) return;
+  const dica = document.getElementById('dica-grafico');
+  let temporizador = null;
+
+  function mostrar(col) {
+    const u = +col.dataset.urgentes, a = +col.dataset.adiante;
+    dica.innerHTML = '';
+    const t = document.createElement('strong'); t.textContent = col.dataset.mes; dica.appendChild(t);
+    [['var(--serie-2)', 'A renovar', u], ['var(--serie-1)', 'Mais adiante', a]].forEach(function (s) {
+      const l = document.createElement('div');
+      const i = document.createElement('i'); i.style.background = s[0];
+      l.appendChild(i); l.appendChild(document.createTextNode(s[1] + ': ' + s[2]));
+      dica.appendChild(l);
+    });
+    dica.classList.add('visivel');
+    // A dica fica acima do número da coluna, sem cobri-lo, e dentro do cartão
+    const caixa = grafico.getBoundingClientRect(), c = col.getBoundingClientRect();
+    const topo = (col.querySelector('.col-valor') || col.querySelector('.pilha')).getBoundingClientRect().top;
+    const meia = dica.offsetWidth / 2;
+    let x = c.left - caixa.left + c.width / 2;
+    x = Math.max(meia, Math.min(caixa.width - meia, x));
+    dica.style.left = x + 'px';
+    dica.style.top = Math.max(dica.offsetHeight, topo - caixa.top - 6) + 'px';
+  }
+  function esconder() { dica.classList.remove('visivel'); }
+
+  grafico.querySelectorAll('.col').forEach(function (col) {
+    col.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') mostrar(col); });
+    col.addEventListener('pointerleave', function (e) { if (e.pointerType !== 'touch') esconder(); });
+    // No toque, a dica fica até tocar fora ou passar alguns segundos
+    col.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'touch') return;
+      mostrar(col);
+      clearTimeout(temporizador);
+      temporizador = setTimeout(esconder, 4000);
+    });
+    col.addEventListener('focus', function () { mostrar(col); });
+    col.addEventListener('blur', esconder);
+  });
+  document.addEventListener('pointerdown', function (e) { if (!grafico.contains(e.target)) esconder(); });
+})();
+</script>
 {% endblock %}

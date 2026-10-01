@@ -1,239 +1,423 @@
 {% extends 'layout.html' %}
 {% set active = 'empresas' %}
 {% block title %}{{ empresa.nome }}{% endblock %}
+{% block head %}<style media="print">@page { size: A4 landscape; margin: 12mm; }</style>{% endblock %}
 {% block page %}
-<a class="back" href="{{ url_for('empresas') }}"><i class="ti ti-arrow-left"></i> Voltar — {{ empresa.categoria }}</a>
-<div class="pg-head" style="display:flex;align-items:flex-start;justify-content:space-between">
+<div class="rel-cabecalho" aria-hidden="true">
   <div>
+    <div class="titulo">{{ empresa.nome }}</div>
+    <div>{{ empresa.categoria }} · CNPJ {{ empresa.cnpj or 'não informado' }} · {{ documentos|length }} documento{{ 's' if documentos|length != 1 }}</div>
+  </div>
+  <div class="meta">AlertSignal<br>Impresso em {{ gerado_em.strftime('%d/%m/%Y às %H:%M') }}</div>
+</div>
+
+<a class="voltar" href="{{ url_for('empresas') }}"><i class="ti ti-arrow-left" aria-hidden="true"></i> Empresas · {{ empresa.categoria }}</a>
+
+<div class="pg-head">
+  <div style="min-width:0">
     <h1>{{ empresa.nome }}</h1>
-    <div class="sub">CNPJ {{ empresa.cnpj or '—' }}</div>
+    <div class="sub">CNPJ {{ empresa.cnpj or 'não informado' }}{% if not empresa.ativa %} · <span class="badge badge-none">Inativa</span>{% endif %}{% if not eh_admin %} · <span class="badge badge-neutro"><i class="ti ti-eye" aria-hidden="true"></i> Somente consulta</span>{% endif %}</div>
   </div>
-  <div style="display:flex;gap:8px">
-    <a href="{{ url_for('exportar') }}" class="btn" title="Exportar CSV"><i class="ti ti-download"></i> Exportar</a>
+  {% if documentos %}
+  <div class="pg-acoes">
+    <a class="btn" href="{{ url_for('relatorio', empresa=empresa.id, imprimir=1) }}"><i class="ti ti-printer" aria-hidden="true"></i> Imprimir</a>
+    <a class="btn" href="{{ url_for('exportar', fmt='xlsx', empresa=empresa.id) }}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> Excel</a>
+    {% if eh_admin %}
+    <button type="button" class="btn btn-primary" data-abrir-novo><i class="ti ti-file-plus" aria-hidden="true"></i> Adicionar documento</button>
+    {% endif %}
   </div>
+  {% endif %}
 </div>
 
-<div class="sec-head">Documentos</div>
-
-<!-- BUSCA -->
-<div style="margin-bottom:14px">
-  <input class="form-input" type="text" id="busca-doc" placeholder="Buscar documento..." style="width:260px" oninput="filtrarDocs()">
+{% if documentos %}
+{% set filtros_resumo = [('VENCIDO', 'badge-danger', 'vencido', 'vencidos'), ('RENOVAR', 'badge-warn', 'a renovar', 'a renovar'),
+                         ('OK', 'badge-ok', 'em dia', 'em dia'), ('NÃO TEM', 'badge-none', 'sem data', 'sem data')] %}
+<div class="resumo-empresa" role="group" aria-label="Filtrar documentos por situação">
+  {% for status, classe, um, varios in filtros_resumo if resumo[status] %}
+  <button type="button" class="badge {{ classe }}" data-filtro="{{ status }}" aria-pressed="false"
+          title="Mostrar só os documentos {{ varios }}">{{ resumo[status] }} {{ um if resumo[status] == 1 else varios }}</button>
+  {% endfor %}
 </div>
 
-<table class="doc-table" id="tabela-docs">
+<div class="busca">
+  <i class="ti ti-search" aria-hidden="true"></i>
+  <label class="sr-only" for="busca-doc">Buscar documento</label>
+  <input class="form-input" type="search" id="busca-doc" placeholder="Buscar documento ou protocolo" autocomplete="off">
+</div>
+
+<div class="tabela-wrap" id="tabela-wrap">
+<table class="tabela" id="tabela-docs">
+  <caption class="sr-only">Documentos de {{ empresa.nome }}, dos mais urgentes para os em dia</caption>
   <thead>
     <tr>
-      <th>Documento</th><th>Protocolo</th><th>Vencimento</th><th>Dias</th><th>Status</th><th>Observações</th><th>Responsáveis</th><th></th>
+      <th scope="col">Documento</th><th scope="col">Protocolo</th><th scope="col">Vencimento</th><th scope="col">Prazo</th>
+      <th scope="col">Status</th><th scope="col">Responsáveis</th><th scope="col">Observações</th>
+      {% if eh_admin %}<th scope="col" class="acoes"><span class="sr-only">Ações</span></th>{% endif %}
     </tr>
   </thead>
   <tbody>
     {% for doc in documentos %}
-    <tr class="doc-row" data-tipo="{{ doc.tipo|lower }}">
-      <td class="doc-name">{{ doc.tipo }}</td>
-      <td>
-        <span class="proto-txt" data-id="{{ doc.id }}" style="color:var(--text2);cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px" onclick="editarProtocolo(this)" title="Clique para editar">{{ doc.protocolo or '—' }}</span>
+    {% set urgente = doc.status in ['VENCIDO','RENOVAR'] %}
+    <tr class="doc-row {{ 'st-danger' if doc.status == 'VENCIDO' else ('st-warn' if doc.status == 'RENOVAR' else '') }}" id="doc-{{ doc.id }}"
+        data-id="{{ doc.id }}" data-tipo="{{ doc.tipo }}" data-status="{{ doc.status }}"
+        data-vencimento="{{ doc.vencimento or '' }}" data-protocolo="{{ doc.protocolo or '' }}" data-obs="{{ doc.observacoes }}"
+        data-busca="{{ (doc.tipo ~ ' ' ~ (doc.protocolo or ''))|lower }}">
+      <td class="titulo forte" data-rotulo="Documento">{{ doc.tipo }}</td>
+      <td data-rotulo="Protocolo">
+        {% if eh_admin %}
+        <button type="button" class="proto-btn" data-acao="protocolo" aria-label="Protocolo de {{ doc.tipo }}: {{ doc.protocolo or 'não informado' }}. Editar">{{ doc.protocolo or '—' }}<i class="ti ti-pencil" aria-hidden="true"></i></button>
+        {% else %}<span class="mono" style="font-size:12px;color:var(--text2)">{{ doc.protocolo or '—' }}</span>{% endif %}
       </td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ doc.vencimento|formatar_data }}</td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:{% if doc.dias is none %}var(--text3){% elif doc.dias < 0 %}var(--danger){% elif doc.dias <= 7 %}var(--danger){% elif doc.dias <= 30 %}var(--warn){% else %}var(--ok){% endif %}">{{ doc.dias|dias_texto }}</td>
-      <td><span class="badge badge-{{ doc.status|status_classe }}">{{ doc.status }}</span></td>
-      <td style="max-width:180px;font-size:11px;color:var(--text2)">{{ doc.observacoes or '—' }}</td>
-      <td>
+      <td data-rotulo="Vencimento" class="mono num" style="font-size:12px">{{ doc.vencimento|formatar_data }}</td>
+      <td data-rotulo="Prazo" class="mono num {% if doc.dias is none %}muted{% elif doc.dias < 0 %}txt-danger{% elif doc.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}" style="font-size:12px;font-weight:700;white-space:nowrap">{{ doc.dias|dias_texto }}</td>
+      <td data-rotulo="Status"><span class="badge badge-{{ doc.status|status_classe }}">{{ doc.status|status_rotulo }}</span></td>
+      <td data-rotulo="Responsáveis">
         <div class="resp-chips" id="chips-{{ doc.id }}">
           {% for r in doc.responsaveis %}
-          <div class="resp-chip" data-resp-id="{{ r.id }}">{{ r.nome }}<span class="remove" onclick="removerResp({{ doc.id }}, {{ r.id }}, this)"><i class="ti ti-x"></i></span></div>
+          <span class="resp-chip {{ '' if eh_admin else 'so-leitura' }}" data-resp-id="{{ r.id }}" data-nome="{{ r.nome }}" title="{{ r.email }}">{{ r.nome }}{% if eh_admin %}<button type="button" data-acao="remover-resp" aria-label="Tirar {{ r.nome }} de {{ doc.tipo }}"><i class="ti ti-x" aria-hidden="true"></i></button>{% endif %}</span>
+          {% else %}
+          <span class="sem-resp">Sem responsável</span>
           {% endfor %}
         </div>
       </td>
-      <td style="white-space:nowrap">
-        <button class="btn" style="font-size:11px;padding:4px 8px;margin-bottom:2px" onclick="abrirModalResp({{ doc.id }}, '{{ doc.tipo }}')" title="Responsáveis"><i class="ti ti-user-plus"></i></button>
-        <button class="btn" style="font-size:11px;padding:4px 8px;margin-bottom:2px" onclick="abrirModalEditar({{ doc.id }}, '{{ doc.tipo }}', '{{ doc.vencimento or '' }}', '{{ doc.protocolo or '' }}', {{ doc.observacoes|tojson if doc.observacoes else '\"\"' }})" title="Editar"><i class="ti ti-edit"></i></button>
-        {% if doc.status in ['VENCIDO','RENOVAR'] %}
-        <button class="btn btn-warn" style="font-size:11px;padding:4px 8px;margin-bottom:2px" onclick="abrirModalRenovar({{ doc.id }}, '{{ doc.tipo }}')" title="Renovar"><i class="ti ti-refresh"></i></button>
-        <button class="btn" style="font-size:11px;padding:4px 8px;margin-bottom:2px;border-color:var(--line2)" onclick="reenviarAlerta({{ doc.id }})" title="Reenviar alerta"><i class="ti ti-mail-forward"></i></button>
-        {% endif %}
-        <button class="btn btn-danger" style="font-size:11px;padding:4px 8px" onclick="excluirDoc({{ doc.id }}, '{{ doc.tipo }}')" title="Excluir"><i class="ti ti-trash"></i></button>
+      <td data-rotulo="Observações" class="obs {{ '' if doc.observacoes else 'vazio-cel' }}">{{ doc.observacoes or '—' }}</td>
+      {% if eh_admin %}
+      <td class="acoes">
+        <span class="grupo-acoes">
+          {% if urgente %}
+          <button type="button" class="btn btn-icone btn-warn" data-acao="renovar" aria-label="Renovar {{ doc.tipo }}" title="Renovar"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-icone" data-acao="reenviar" aria-label="Reenviar alerta de {{ doc.tipo }}" title="Reenviar alerta"><i class="ti ti-mail-forward" aria-hidden="true"></i></button>
+          {% else %}
+          <span class="btn btn-icone vago" aria-hidden="true"></span><span class="btn btn-icone vago" aria-hidden="true"></span>
+          {% endif %}
+          <button type="button" class="btn btn-icone" data-acao="responsavel" aria-label="Adicionar responsável a {{ doc.tipo }}" title="Adicionar responsável"><i class="ti ti-user-plus" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-icone" data-acao="editar" aria-label="Editar {{ doc.tipo }}" title="Editar"><i class="ti ti-edit" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-icone btn-danger" data-acao="excluir" aria-label="Excluir {{ doc.tipo }}" title="Excluir"><i class="ti ti-trash" aria-hidden="true"></i></button>
+        </span>
       </td>
+      {% endif %}
     </tr>
     {% endfor %}
   </tbody>
 </table>
-
-<!-- MODAL RESPONSÁVEL -->
-<div class="modal-overlay" id="modal-resp">
-  <div class="modal-box">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div><h3>Adicionar responsável</h3><div class="sub" id="modal-resp-sub"></div></div>
-      <button class="btn" onclick="fecharModal('modal-resp')" style="padding:4px 8px"><i class="ti ti-x"></i></button>
-    </div>
-    <div style="display:flex;gap:8px">
-      <select class="form-input" id="sel-resp" style="flex:1">
-        <option value="">— escolha —</option>
-        {% for r in todos_responsaveis %}
-        <option value="{{ r.id }}" data-nome="{{ r.nome }}">{{ r.nome }} — {{ r.email }}</option>
-        {% endfor %}
-      </select>
-      <button class="btn btn-primary" onclick="vincularResp()"><i class="ti ti-plus"></i> Adicionar</button>
-    </div>
-    {% if not todos_responsaveis %}
-    <div style="font-size:12px;color:var(--text2);margin-top:12px">Nenhum responsável cadastrado. <a href="{{ url_for('responsaveis') }}" style="color:var(--acc2)">Cadastrar</a>.</div>
-    {% endif %}
-  </div>
+</div>
+<div class="vazio compacto" id="busca-doc-vazio" hidden>
+  <i class="ti ti-search-off" aria-hidden="true"></i><span id="busca-doc-msg" role="status">Nenhum documento encontrado.</span>
+  <button type="button" class="btn btn-sm" id="limpar-filtros-doc">Mostrar todos</button>
 </div>
 
-<!-- MODAL EDITAR -->
-<div class="modal-overlay" id="modal-editar">
-  <div class="modal-box">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div><h3>Editar documento</h3><div class="sub" id="modal-editar-sub"></div></div>
-      <button class="btn" onclick="fecharModal('modal-editar')" style="padding:4px 8px"><i class="ti ti-x"></i></button>
-    </div>
-    <input type="hidden" id="edit-doc-id">
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Protocolo</label>
-        <input class="form-input" type="text" id="edit-protocolo" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Vencimento</label>
-        <input class="form-input" type="date" id="edit-vencimento" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Observações</label>
-        <textarea class="form-input" id="edit-obs" rows="3" style="width:100%;resize:vertical"></textarea>
-      </div>
-      <button class="btn btn-primary" onclick="salvarEdicao()"><i class="ti ti-device-floppy"></i> Salvar</button>
-    </div>
-  </div>
+{% else %}
+<div class="vazio grande">
+  <i class="ti ti-file-off" aria-hidden="true"></i>
+  <strong>Nenhum documento cadastrado</strong>
+  <p>Cadastre os alvarás e licenças desta empresa para acompanhar os vencimentos.</p>
+  {% if eh_admin %}<button type="button" class="btn btn-primary" data-abrir-novo><i class="ti ti-file-plus" aria-hidden="true"></i> Adicionar documento</button>{% endif %}
 </div>
+{% endif %}
 
-<!-- MODAL RENOVAR -->
-<div class="modal-overlay" id="modal-renovar">
-  <div class="modal-box">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div><h3>Marcar como renovado</h3><div class="sub" id="modal-renovar-sub"></div></div>
-      <button class="btn" onclick="fecharModal('modal-renovar')" style="padding:4px 8px"><i class="ti ti-x"></i></button>
+{% if eh_admin %}
+<!-- MODAL: ADICIONAR RESPONSÁVEL -->
+<dialog class="modal" id="modal-resp" aria-labelledby="modal-resp-tit">
+  <form id="form-resp">
+    <div class="modal-cab">
+      <div><h2 id="modal-resp-tit">Adicionar responsável</h2><div class="sub" id="modal-resp-sub"></div></div>
+      <button type="button" class="icone-btn" data-fechar aria-label="Fechar"><i class="ti ti-x" aria-hidden="true"></i></button>
     </div>
-    <input type="hidden" id="renovar-doc-id">
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nova data de vencimento</label>
-        <input class="form-input" type="date" id="renovar-vencimento" style="width:100%">
+    <div class="modal-corpo">
+      {% if todos_responsaveis %}
+      <div class="campo">
+        <label class="lbl" for="sel-resp">Responsável</label>
+        <select class="form-input" id="sel-resp" required>
+          <option value="">Escolha uma pessoa</option>
+          {% for r in todos_responsaveis %}<option value="{{ r.id }}">{{ r.nome }} · {{ r.email }}</option>{% endfor %}
+        </select>
+        <span class="ajuda">Quem for escolhido recebe os alertas deste documento por e&#8209;mail.</span>
       </div>
-      <button class="btn btn-primary" onclick="confirmarRenovacao()"><i class="ti ti-check"></i> Confirmar renovação</button>
+      {% else %}
+      <p>Nenhum responsável cadastrado ainda. <a class="link" href="{{ url_for('responsaveis') }}">Cadastrar responsável</a></p>
+      {% endif %}
     </div>
-  </div>
-</div>
+    <div class="modal-rodape">
+      <button type="button" class="btn btn-ghost" data-fechar>Cancelar</button>
+      {% if todos_responsaveis %}<button type="submit" class="btn btn-primary"><i class="ti ti-user-plus" aria-hidden="true"></i> Adicionar</button>{% endif %}
+    </div>
+  </form>
+</dialog>
+
+<!-- MODAL: EDITAR -->
+<dialog class="modal" id="modal-editar" aria-labelledby="modal-editar-tit">
+  <form id="form-editar">
+    <div class="modal-cab">
+      <div><h2 id="modal-editar-tit">Editar documento</h2><div class="sub" id="modal-editar-sub"></div></div>
+      <button type="button" class="icone-btn" data-fechar aria-label="Fechar"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
+    <div class="modal-corpo">
+      <div class="campo"><label class="lbl" for="edit-protocolo">Protocolo</label><input class="form-input" type="text" id="edit-protocolo" maxlength="80"></div>
+      <div class="campo"><label class="lbl" for="edit-vencimento">Vencimento</label><input class="form-input" type="date" id="edit-vencimento">
+        <span class="ajuda">Deixe em branco se o documento não tem data.</span></div>
+      <div class="campo"><label class="lbl" for="edit-obs">Observações</label><textarea class="form-input" id="edit-obs" rows="3" maxlength="500"></textarea></div>
+    </div>
+    <div class="modal-rodape">
+      <button type="button" class="btn btn-ghost" data-fechar>Cancelar</button>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy" aria-hidden="true"></i> Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- MODAL: RENOVAR -->
+<dialog class="modal" id="modal-renovar" aria-labelledby="modal-renovar-tit">
+  <form id="form-renovar">
+    <div class="modal-cab">
+      <div><h2 id="modal-renovar-tit">Registrar renovação</h2><div class="sub" id="modal-renovar-sub"></div></div>
+      <button type="button" class="icone-btn" data-fechar aria-label="Fechar"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
+    <div class="modal-corpo">
+      <p id="renovar-atual"></p>
+      <div class="campo"><label class="lbl" for="renovar-vencimento">Novo vencimento</label>
+        <input class="form-input" type="date" id="renovar-vencimento" required aria-describedby="renovar-ajuda">
+        <span class="ajuda" id="renovar-ajuda">Escolha uma data a partir de amanhã. A sugestão é um ano depois do vencimento atual.</span></div>
+    </div>
+    <div class="modal-rodape">
+      <button type="button" class="btn btn-ghost" data-fechar>Cancelar</button>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-check" aria-hidden="true"></i> Confirmar renovação</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- MODAL: NOVO DOCUMENTO -->
+<dialog class="modal" id="modal-novo" aria-labelledby="modal-novo-tit">
+  <form method="POST" action="{{ url_for('documento_novo') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="empresa_id" value="{{ empresa.id }}">
+    <input type="hidden" name="voltar" value="empresa">
+    <div class="modal-cab">
+      <div><h2 id="modal-novo-tit">Adicionar documento</h2><div class="sub">{{ empresa.nome }}</div></div>
+      <button type="button" class="icone-btn" data-fechar aria-label="Fechar"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
+    <div class="modal-corpo">
+      <div class="campo">
+        <label class="lbl" for="novo-tipo">Tipo</label>
+        <select class="form-input" id="novo-tipo" name="tipo" required>
+          <option value="">Escolha o tipo</option>
+          {% for t in tipos_doc %}<option value="{{ t }}">{{ t }}{% if t not in tipos_faltando %} (já cadastrado){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo"><label class="lbl" for="novo-protocolo">Protocolo <span style="text-transform:none;letter-spacing:0">(opcional)</span></label><input class="form-input" type="text" id="novo-protocolo" name="protocolo" maxlength="80"></div>
+      <div class="campo"><label class="lbl" for="novo-vencimento">Vencimento</label><input class="form-input" type="date" id="novo-vencimento" name="vencimento">
+        <span class="ajuda">Sem data, o documento aparece como "sem data" até alguém informar.</span></div>
+    </div>
+    <div class="modal-rodape">
+      <button type="button" class="btn btn-ghost" data-fechar>Cancelar</button>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Adicionar</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
 
 {% block scripts %}
 <script>
-let docAtual = null;
+(function () {
+  const tabela = document.getElementById('tabela-docs');
+  const empresa = {{ empresa.nome|tojson }};
+  const dataBR = iso => iso ? iso.split('-').reverse().join('/') : '';
 
-function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
-
-function abrirModalResp(docId, docTipo) {
-  docAtual = docId;
-  document.getElementById('modal-resp-sub').textContent = docTipo;
-  document.getElementById('modal-resp').classList.add('open');
-}
-
-function abrirModalEditar(docId, docTipo, vencimento, protocolo, obs) {
-  document.getElementById('edit-doc-id').value = docId;
-  document.getElementById('modal-editar-sub').textContent = docTipo;
-  document.getElementById('edit-protocolo').value = protocolo;
-  document.getElementById('edit-vencimento').value = vencimento;
-  document.getElementById('edit-obs').value = obs || '';
-  document.getElementById('modal-editar').classList.add('open');
-}
-
-function abrirModalRenovar(docId, docTipo) {
-  document.getElementById('renovar-doc-id').value = docId;
-  document.getElementById('modal-renovar-sub').textContent = docTipo;
-  document.getElementById('modal-renovar').classList.add('open');
-}
-
-async function vincularResp() {
-  const sel = document.getElementById('sel-resp');
-  const respId = sel.value;
-  const nome = sel.options[sel.selectedIndex]?.dataset.nome;
-  if (!respId) return;
-  const res = await fetch(`/api/doc/${docAtual}/responsavel`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({responsavel_id:parseInt(respId)})});
-  const data = await res.json();
-  if (data.ok) {
-    const chips = document.getElementById(`chips-${docAtual}`);
-    const chip = document.createElement('div');
-    chip.className='resp-chip'; chip.dataset.respId=respId;
-    chip.innerHTML=`${nome}<span class="remove" onclick="removerResp(${docAtual},${respId},this)"><i class="ti ti-x"></i></span>`;
-    chips.appendChild(chip);
-    fecharModal('modal-resp');
-    showToast('Responsável adicionado');
+  // Linha vinda do dashboard (#doc-N) ou recém-alterada fica destacada
+  let destacar = location.hash.startsWith('#doc-') ? location.hash.slice(1) : null;
+  try { const d = sessionStorage.getItem('destacar'); if (d) { destacar = d; sessionStorage.removeItem('destacar'); } } catch (e) {}
+  if (destacar) {
+    const linha = document.getElementById(destacar);
+    if (linha) {
+      linha.classList.add('destaque');
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      const rolar = function () { linha.scrollIntoView({ block: 'center' }); };
+      if (document.readyState === 'complete') rolar(); else window.addEventListener('load', function () { requestAnimationFrame(rolar); });
+    }
   }
-}
 
-async function removerResp(docId, respId, el) {
-  const res = await fetch(`/api/doc/${docId}/responsavel/${respId}`, {method:'DELETE'});
-  const data = await res.json();
-  if (data.ok) { el.closest('.resp-chip').remove(); showToast('Responsável removido'); }
-}
-
-async function salvarEdicao() {
-  const docId = document.getElementById('edit-doc-id').value;
-  const res = await fetch(`/api/doc/${docId}/editar`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({protocolo:document.getElementById('edit-protocolo').value.trim(),vencimento:document.getElementById('edit-vencimento').value,observacoes:document.getElementById('edit-obs').value.trim()})});
-  const data = await res.json();
-  if (data.ok) { fecharModal('modal-editar'); showToast('Documento atualizado'); setTimeout(()=>location.reload(),800); }
-}
-
-async function confirmarRenovacao() {
-  const docId = document.getElementById('renovar-doc-id').value;
-  const venc = document.getElementById('renovar-vencimento').value;
-  if (!venc) { showToast('Informe a nova data','erro'); return; }
-  const res = await fetch(`/api/doc/${docId}/renovar`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vencimento:venc})});
-  const data = await res.json();
-  if (data.ok) { fecharModal('modal-renovar'); showToast('Documento renovado'); setTimeout(()=>location.reload(),800); }
-}
-
-async function excluirDoc(docId, tipo) {
-  if (!confirm(`Excluir "${tipo}"? Esta ação não pode ser desfeita.`)) return;
-  const res = await fetch(`/api/doc/${docId}/excluir`, {method:'DELETE'});
-  const data = await res.json();
-  if (data.ok) { showToast('Documento excluído'); setTimeout(()=>location.reload(),800); }
-  else showToast(data.erro||'Erro ao excluir','erro');
-}
-
-async function reenviarAlerta(docId) {
-  showToast('Enviando alerta...','info');
-  const res = await fetch(`/api/doc/${docId}/reenviar-alerta`, {method:'POST'});
-  const data = await res.json();
-  if (data.ok) showToast('Alerta enviado com sucesso');
-  else showToast(data.erro||'Erro ao enviar','erro');
-}
-
-function editarProtocolo(el) {
-  const docId = el.dataset.id;
-  const atual = el.textContent.trim()==='—' ? '' : el.textContent.trim();
-  const input = document.createElement('input');
-  input.className='form-input'; input.value=atual;
-  input.style.cssText='width:120px;padding:3px 7px;font-family:JetBrains Mono,monospace;font-size:11px';
-  el.replaceWith(input); input.focus();
-  async function salvar() {
-    const novo = input.value.trim();
-    await fetch(`/api/doc/${docId}/protocolo`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({protocolo:novo})});
-    const span = document.createElement('span');
-    span.className='proto-txt'; span.dataset.id=docId;
-    span.style.cssText='color:var(--text2);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:11px';
-    span.title='Clique para editar'; span.textContent=novo||'—';
-    span.onclick=function(){editarProtocolo(this)};
-    input.replaceWith(span); showToast('Protocolo atualizado');
+  // Busca e filtro por situação
+  const busca = document.getElementById('busca-doc');
+  let filtroStatus = null;
+  function aplicarFiltros() {
+    const q = busca ? busca.value.trim().toLowerCase() : '';
+    let visiveis = 0;
+    tabela.querySelectorAll('.doc-row').forEach(function (l) {
+      const mostra = l.dataset.busca.includes(q) && (!filtroStatus || l.dataset.status === filtroStatus);
+      l.hidden = !mostra; if (mostra) visiveis++;
+    });
+    document.getElementById('tabela-wrap').hidden = visiveis === 0;
+    document.getElementById('busca-doc-vazio').hidden = visiveis > 0;
+    document.getElementById('busca-doc-msg').textContent = q ? 'Nenhum documento encontrado para "' + busca.value.trim() + '".' : 'Nenhum documento nessa situação.';
   }
-  input.addEventListener('blur',salvar);
-  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur()});
-}
-
-function filtrarDocs() {
-  const q = document.getElementById('busca-doc').value.toLowerCase();
-  document.querySelectorAll('.doc-row').forEach(row => {
-    row.style.display = row.dataset.tipo.includes(q) ? '' : 'none';
+  if (busca) busca.addEventListener('input', aplicarFiltros);
+  document.querySelectorAll('[data-filtro]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const ligar = b.getAttribute('aria-pressed') !== 'true';
+      document.querySelectorAll('[data-filtro]').forEach(x => x.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', ligar ? 'true' : 'false');
+      filtroStatus = ligar ? b.dataset.filtro : null;
+      aplicarFiltros();
+    });
   });
-}
+  const limpar = document.getElementById('limpar-filtros-doc');
+  if (limpar) limpar.addEventListener('click', function () {
+    busca.value = ''; filtroStatus = null;
+    document.querySelectorAll('[data-filtro]').forEach(x => x.setAttribute('aria-pressed', 'false'));
+    aplicarFiltros(); busca.focus();
+  });
+
+  document.querySelectorAll('[data-abrir-novo]').forEach(function (b) {
+    b.addEventListener('click', function () { abrirModal('modal-novo', b); });
+  });
+
+  if (!tabela || !document.getElementById('modal-editar')) return;   // visualizador: só consulta
+
+  let linhaAtual = null;
+  const hoje = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4);
+  const amanha = new Date(hoje.getTime() + 864e5).toISOString().slice(0, 10);
+  document.getElementById('renovar-vencimento').min = amanha;
+
+  function recarregar(msg, docId) {
+    try { sessionStorage.setItem('toast', msg); if (docId) sessionStorage.setItem('destacar', 'doc-' + docId); } catch (e) {}
+    location.reload();
+  }
+
+  tabela.addEventListener('click', async function (e) {
+    const botao = e.target.closest('[data-acao]');
+    if (!botao) return;
+    const linha = botao.closest('.doc-row');
+    linhaAtual = linha;
+    const id = linha.dataset.id, tipo = linha.dataset.tipo;
+    const acao = botao.dataset.acao;
+
+    if (acao === 'responsavel') {
+      document.getElementById('modal-resp-sub').textContent = tipo + ' · ' + empresa;
+      const sel = document.getElementById('sel-resp');
+      if (sel) {
+        const ja = Array.from(linha.querySelectorAll('.resp-chip')).map(c => c.dataset.respId);
+        Array.from(sel.options).forEach(o => { o.disabled = !!o.value && ja.includes(o.value); });
+        sel.value = '';
+      }
+      abrirModal('modal-resp', botao);
+    }
+    if (acao === 'editar') {
+      document.getElementById('modal-editar-sub').textContent = tipo + ' · ' + empresa;
+      document.getElementById('edit-protocolo').value = linha.dataset.protocolo;
+      document.getElementById('edit-vencimento').value = linha.dataset.vencimento;
+      document.getElementById('edit-obs').value = linha.dataset.obs;
+      abrirModal('modal-editar', botao);
+    }
+    if (acao === 'renovar') {
+      document.getElementById('modal-renovar-sub').textContent = tipo + ' · ' + empresa;
+      const atual = linha.dataset.vencimento;
+      document.getElementById('renovar-atual').textContent = atual ? 'Vencimento atual: ' + dataBR(atual) + '.' : 'Este documento ainda não tem vencimento.';
+      // Sugestão: um ano depois do vencimento atual (ou de hoje), nunca antes de amanhã
+      const base = atual ? new Date(atual + 'T12:00:00') : new Date(hoje.getTime());
+      base.setFullYear(base.getFullYear() + 1);
+      let sugestao = base.toISOString().slice(0, 10);
+      if (sugestao < amanha) sugestao = amanha;
+      document.getElementById('renovar-vencimento').value = sugestao;
+      abrirModal('modal-renovar', botao);
+    }
+    if (acao === 'reenviar') {
+      botao.disabled = true;
+      const r = await api('/api/doc/' + id + '/reenviar-alerta', { method: 'POST' });
+      botao.disabled = false;
+      showToast(r.ok ? r.mensagem : r.erro, r.ok ? 'ok' : (r.demo ? 'info' : 'erro'));
+    }
+    if (acao === 'excluir') {
+      const ok = await confirmar({ titulo: 'Excluir documento', texto: 'Excluir "' + tipo + '" de ' + empresa + '? O documento e os vínculos com responsáveis são apagados. Isso não pode ser desfeito.', botao: 'Excluir documento', perigo: true });
+      if (!ok) return;
+      const r = await api('/api/doc/' + id + '/excluir', { method: 'DELETE' });
+      if (r.ok) recarregar('"' + tipo + '" excluído.'); else showToast(r.erro, 'erro');
+    }
+    if (acao === 'remover-resp') {
+      const chip = botao.closest('.resp-chip');
+      const nome = chip.dataset.nome;
+      const ok = await confirmar({ titulo: 'Tirar responsável', texto: nome + ' deixa de receber os alertas de "' + tipo + '". Dá para adicionar de novo depois.', botao: 'Tirar', perigo: true });
+      if (!ok) return;
+      const r = await api('/api/doc/' + id + '/responsavel/' + chip.dataset.respId, { method: 'DELETE' });
+      if (!r.ok) { showToast(r.erro, 'erro'); return; }
+      const lista = chip.parentElement;
+      chip.remove();
+      if (!lista.querySelector('.resp-chip')) lista.innerHTML = '<span class="sem-resp">Sem responsável</span>';
+      showToast(nome + ' não recebe mais os alertas de ' + tipo + '.');
+      linha.querySelector('[data-acao="responsavel"]').focus();
+    }
+    if (acao === 'protocolo') editarProtocolo(botao, linha);
+  });
+
+  document.getElementById('form-resp').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const sel = document.getElementById('sel-resp');
+    if (!sel || !sel.value) return;
+    const id = linhaAtual.dataset.id;
+    const r = await api('/api/doc/' + id + '/responsavel', { method: 'POST', body: { responsavel_id: parseInt(sel.value, 10) } });
+    if (!r.ok) { showToast(r.erro, 'erro'); return; }
+    const lista = document.getElementById('chips-' + id);
+    const vazio = lista.querySelector('.sem-resp'); if (vazio) vazio.remove();
+    const chip = document.createElement('span');
+    chip.className = 'resp-chip'; chip.dataset.respId = r.id; chip.dataset.nome = r.nome;
+    chip.textContent = r.nome;
+    const x = document.createElement('button');
+    x.type = 'button'; x.dataset.acao = 'remover-resp';
+    x.setAttribute('aria-label', 'Tirar ' + r.nome + ' de ' + linhaAtual.dataset.tipo);
+    x.innerHTML = '<i class="ti ti-x" aria-hidden="true"></i>';
+    chip.appendChild(x); lista.appendChild(chip);
+    fecharModal('modal-resp');
+    showToast(r.nome + ' agora recebe os alertas de ' + linhaAtual.dataset.tipo + '.');
+  });
+
+  document.getElementById('form-editar').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const r = await api('/api/doc/' + linhaAtual.dataset.id + '/editar', { method: 'POST', body: {
+      protocolo: document.getElementById('edit-protocolo').value.trim(),
+      vencimento: document.getElementById('edit-vencimento').value,
+      observacoes: document.getElementById('edit-obs').value.trim(),
+    } });
+    if (r.ok) recarregar('"' + linhaAtual.dataset.tipo + '" atualizado.', linhaAtual.dataset.id); else showToast(r.erro, 'erro');
+  });
+
+  document.getElementById('form-renovar').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const venc = document.getElementById('renovar-vencimento').value;
+    if (!venc || venc < amanha) { showToast('Escolha uma data a partir de amanhã.', 'erro'); return; }
+    const r = await api('/api/doc/' + linhaAtual.dataset.id + '/renovar', { method: 'POST', body: { vencimento: venc } });
+    if (r.ok) recarregar('"' + linhaAtual.dataset.tipo + '" renovado até ' + dataBR(venc) + '.', linhaAtual.dataset.id);
+    else showToast(r.erro, 'erro');
+  });
+
+  function editarProtocolo(botao, linha) {
+    const atual = linha.dataset.protocolo;
+    const caixa = document.createElement('span');
+    const input = document.createElement('input');
+    input.className = 'form-input proto-input'; input.value = atual; input.maxLength = 80;
+    input.setAttribute('aria-label', 'Protocolo de ' + linha.dataset.tipo);
+    input.setAttribute('aria-describedby', 'proto-dica-' + linha.dataset.id);
+    const dica = document.createElement('span');
+    dica.className = 'proto-dica'; dica.id = 'proto-dica-' + linha.dataset.id;
+    dica.textContent = 'Enter salva · Esc cancela';
+    caixa.appendChild(input); caixa.appendChild(dica);
+    botao.replaceWith(caixa); input.focus(); input.select();
+    let terminado = false;
+    async function concluir(salvar) {
+      if (terminado) return; terminado = true;
+      const novo = input.value.trim();
+      if (salvar && novo !== atual) {
+        const r = await api('/api/doc/' + linha.dataset.id + '/protocolo', { method: 'POST', body: { protocolo: novo } });
+        if (r.ok) { linha.dataset.protocolo = novo; showToast('Protocolo de ' + linha.dataset.tipo + ' atualizado.'); }
+        else showToast(r.erro, 'erro');
+      }
+      botao.firstChild.textContent = linha.dataset.protocolo || '—';
+      botao.setAttribute('aria-label', 'Protocolo de ' + linha.dataset.tipo + ': ' + (linha.dataset.protocolo || 'não informado') + '. Editar');
+      caixa.replaceWith(botao); botao.focus();
+    }
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); concluir(true); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); concluir(false); }
+    });
+    input.addEventListener('blur', function () { concluir(true); });
+  }
+})();
 </script>
-{% endblock %}
 {% endblock %}

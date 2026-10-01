@@ -1,3 +1,5 @@
+zen.db
+demo.db
 zen_backup.db
 .env
 __pycache__/

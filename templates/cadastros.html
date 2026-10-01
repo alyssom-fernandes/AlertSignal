@@ -1,181 +1,217 @@
 {% extends 'layout.html' %}
 {% set active = 'cadastros' %}
 {% block title %}Cadastros{% endblock %}
+{% set abas = [('empresas', 'Empresas', empresas_ativas|length), ('categorias', 'Categorias', categorias|length),
+               ('documentos', 'Documentos', None), ('inativos', 'Inativos', empresas_inativas|length)] %}
+{% set aba_atual = aba if aba in ['empresas','categorias','documentos','inativos'] else 'empresas' %}
 {% block page %}
 <div class="pg-head">
-  <h1>Cadastros</h1>
-  <div class="sub">Empresas, categorias e documentos</div>
+  <div>
+    <h1>Cadastros</h1>
+    <div class="sub">Empresas, categorias e documentos</div>
+  </div>
 </div>
 
-<div class="tabs">
-  <div class="tab active" onclick="mudarTab(this,'tab-empresas')">Empresas</div>
-  <div class="tab" onclick="mudarTab(this,'tab-categorias')">Categorias</div>
-  <div class="tab" onclick="mudarTab(this,'tab-documentos')">Documentos</div>
-  <div class="tab" onclick="mudarTab(this,'tab-inativos')">Inativos</div>
+{% if not eh_admin %}
+<div class="flash info" role="note"><i class="ti ti-eye" aria-hidden="true"></i><span>Você está como visualizador: pode consultar os cadastros, mas só administradores alteram.</span></div>
+{% endif %}
+
+<div class="tabs" role="tablist" aria-label="Tipo de cadastro" data-parametro="aba">
+  {% for chave, rotulo, n in abas %}
+  <button type="button" class="tab" role="tab" id="aba-{{ chave }}" aria-controls="tab-{{ chave }}" data-valor="{{ chave }}"
+          aria-selected="{{ 'true' if chave == aba_atual else 'false' }}" tabindex="{{ '0' if chave == aba_atual else '-1' }}">
+    {{ rotulo }}{% if n is not none %} <span class="contagem">{{ n }}</span>{% endif %}
+  </button>
+  {% endfor %}
 </div>
 
 <!-- EMPRESAS -->
-<div id="tab-empresas" class="tab-panel">
-  <div class="form-card" style="margin-bottom:20px">
-    <h3><i class="ti ti-building-plus"></i> Nova empresa</h3>
-    <form method="POST" action="{{ url_for('empresa_nova') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
-        <input class="form-input" type="text" name="nome" placeholder="Razão social" required style="width:220px">
-      </div>
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">CNPJ</label>
-        <input class="form-input" type="text" name="cnpj" placeholder="00.000.000/0000-00" style="width:180px">
-      </div>
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Categoria</label>
-        <select class="form-input" name="categoria_id" required style="width:160px">
-          <option value="">— selecione —</option>
-          {% for cat in categorias %}
-          <option value="{{ cat.id }}">{{ cat.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
+<div id="tab-empresas" class="tab-panel" role="tabpanel" aria-labelledby="aba-empresas" {% if aba_atual != 'empresas' %}hidden{% endif %}>
+  {% if eh_admin %}
+  <div class="cartao secao" style="margin-bottom:24px">
+    <h2><i class="ti ti-building-plus" aria-hidden="true"></i> Nova empresa</h2>
+    {% if categorias %}
+    <form method="POST" action="{{ url_for('empresa_nova') }}" class="form-linha" style="margin-top:14px">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="campo cresce"><label class="lbl" for="emp-nome">Razão social</label><input class="form-input" id="emp-nome" type="text" name="nome" required maxlength="160"></div>
+      <div class="campo"><label class="lbl" for="emp-cnpj">CNPJ</label><input class="form-input w-md" id="emp-cnpj" type="text" name="cnpj" placeholder="00.000.000/0000-00" inputmode="numeric" maxlength="18"></div>
+      <div class="campo"><label class="lbl" for="emp-cat">Categoria</label>
+        <select class="form-input w-sm" id="emp-cat" name="categoria_id" required>
+          <option value="">Escolha</option>
+          {% for cat in categorias %}<option value="{{ cat.id }}">{{ cat.nome }}</option>{% endfor %}
+        </select></div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Cadastrar</button>
     </form>
+    {% else %}
+    <div class="vazio compacto" style="margin-top:12px"><i class="ti ti-tags" aria-hidden="true"></i>
+      <span>Antes da primeira empresa, crie uma categoria (por exemplo, Postos ou Restaurantes).</span>
+      <button type="button" class="btn btn-sm btn-primary" data-ir-aba="aba-categorias">Criar categoria</button></div>
+    {% endif %}
   </div>
+  {% endif %}
 
-  <div class="sec-head">Empresas ativas ({{ empresas_ativas|length }})</div>
-  <table class="doc-table">
-    <thead><tr><th>Nome</th><th>CNPJ</th><th>Categoria</th><th>Documentos</th><th></th></tr></thead>
+  <h2 class="sec-head">Empresas ativas ({{ empresas_ativas|length }})</h2>
+  {% if empresas_ativas %}
+  <div class="tabela-wrap">
+  <table class="tabela">
+    <thead><tr><th scope="col">Nome</th><th scope="col">CNPJ</th><th scope="col">Categoria</th><th scope="col">Documentos</th><th scope="col" class="acoes"><span class="sr-only">Ações</span></th></tr></thead>
     <tbody>
       {% for emp in empresas_ativas %}
       <tr>
-        <td class="doc-name">{{ emp.nome }}</td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)">{{ emp.cnpj or '—' }}</td>
-        <td><span class="badge badge-none">{{ emp.categoria_nome }}</span></td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">{{ emp.total_docs }} doc(s)</td>
-        <td style="white-space:nowrap">
-          <a href="/empresa/{{ emp.id }}" class="btn" style="font-size:11px;padding:4px 10px;margin-right:4px"><i class="ti ti-eye"></i></a>
-          <form method="POST" action="/empresa/{{ emp.id }}/inativar" style="display:inline" onsubmit="return confirm('Inativar {{ emp.nome }}?')">
-            <button type="submit" class="btn btn-warn" style="font-size:11px;padding:4px 10px;margin-right:4px"><i class="ti ti-eye-off"></i></button>
-          </form>
-          {% if emp.total_docs == 0 %}
-          <form method="POST" action="/empresa/{{ emp.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir permanentemente {{ emp.nome }}?')">
-            <button type="submit" class="btn btn-danger" style="font-size:11px;padding:4px 10px"><i class="ti ti-trash"></i></button>
-          </form>
-          {% endif %}
+        <td class="titulo forte" data-rotulo="Nome"><a href="{{ url_for('empresa_detalhe', emp_id=emp.id) }}">{{ emp.nome }}</a></td>
+        <td data-rotulo="CNPJ" class="cnpj">{{ emp.cnpj or '—' }}</td>
+        <td data-rotulo="Categoria"><span class="badge badge-neutro">{{ emp.categoria_nome }}</span></td>
+        <td data-rotulo="Documentos" class="contagem-cel num">{{ emp.total_docs }}</td>
+        <td class="acoes {{ '' if eh_admin else 'so-desktop' }}">
+          <span class="grupo-acoes">
+            <a href="{{ url_for('empresa_detalhe', emp_id=emp.id) }}" class="btn btn-icone" aria-label="Abrir {{ emp.nome }}" title="Abrir"><i class="ti ti-arrow-right" aria-hidden="true"></i></a>
+            {% if eh_admin %}
+            <form method="POST" action="{{ url_for('empresa_inativar', emp_id=emp.id) }}" data-confirmar="Inativar {{ emp.nome }}? Ela sai das listas e dos alertas, mas os documentos continuam guardados. Dá para reativar depois." data-confirmar-titulo="Inativar empresa" data-confirmar-botao="Inativar">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-icone btn-warn" aria-label="Inativar {{ emp.nome }}" title="Inativar"><i class="ti ti-eye-off" aria-hidden="true"></i></button>
+            </form>
+            {% if emp.total_docs == 0 %}
+            <form method="POST" action="{{ url_for('empresa_excluir', emp_id=emp.id) }}" data-confirmar="Excluir {{ emp.nome }} de vez? Isso não pode ser desfeito." data-confirmar-titulo="Excluir empresa" data-confirmar-botao="Excluir" data-perigo>
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-icone btn-danger" aria-label="Excluir {{ emp.nome }}" title="Excluir"><i class="ti ti-trash" aria-hidden="true"></i></button>
+            </form>
+            {% else %}<span class="btn btn-icone vago" aria-hidden="true"></span>
+            {% endif %}
+            {% endif %}
+          </span>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-</div>
-
-<!-- CATEGORIAS -->
-<div id="tab-categorias" class="tab-panel" style="display:none">
-  <div class="form-card" style="margin-bottom:20px">
-    <h3><i class="ti ti-tag"></i> Nova categoria</h3>
-    <form method="POST" action="{{ url_for('categoria_nova') }}" style="display:flex;gap:10px;align-items:flex-end">
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
-        <input class="form-input" type="text" name="nome" placeholder="Ex: Postos, Restaurantes..." required style="width:240px">
-      </div>
-      <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
-    </form>
   </div>
-  <div class="sec-head">Categorias ({{ categorias|length }})</div>
-  <table class="doc-table">
-    <thead><tr><th>Nome</th><th>Empresas</th><th></th></tr></thead>
-    <tbody>
-      {% for cat in categorias %}
-      <tr>
-        <td class="doc-name">{{ cat.nome }}</td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">{{ cat.total_empresas }}</td>
-        <td>
-          {% if cat.total_empresas == 0 %}
-          <form method="POST" action="/categoria/{{ cat.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir categoria {{ cat.nome }}?')">
-            <button type="submit" class="btn btn-danger" style="font-size:11px;padding:4px 10px"><i class="ti ti-trash"></i></button>
-          </form>
-          {% else %}
-          <span style="font-size:11px;color:var(--text3)">Em uso</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<!-- DOCUMENTOS -->
-<div id="tab-documentos" class="tab-panel" style="display:none">
-  <div class="form-card" style="margin-bottom:20px">
-    <h3><i class="ti ti-file-plus"></i> Novo documento</h3>
-    <form method="POST" action="{{ url_for('documento_novo') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Empresa</label>
-        <select class="form-input" name="empresa_id" required style="width:200px">
-          <option value="">— selecione —</option>
-          {% for emp in empresas_ativas %}
-          <option value="{{ emp.id }}">{{ emp.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Tipo</label>
-        <select class="form-input" name="tipo" required style="width:200px">
-          <option value="">— selecione —</option>
-          {% for tipo in tipos_doc %}
-          <option value="{{ tipo }}">{{ tipo }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Protocolo</label>
-        <input class="form-input" type="text" name="protocolo" placeholder="Opcional" style="width:140px">
-      </div>
-      <div>
-        <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Vencimento</label>
-        <input class="form-input" type="date" name="vencimento" style="width:150px">
-      </div>
-      <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
-    </form>
-  </div>
-  <div style="font-size:12px;color:var(--text2);padding:8px 0">Gerencie os documentos de cada empresa acessando a página da empresa.</div>
-</div>
-
-<!-- INATIVOS -->
-<div id="tab-inativos" class="tab-panel" style="display:none">
-  <div class="sec-head">Empresas inativas ({{ empresas_inativas|length }})</div>
-  {% if empresas_inativas %}
-  <table class="doc-table">
-    <thead><tr><th>Nome</th><th>CNPJ</th><th>Categoria</th><th></th></tr></thead>
-    <tbody>
-      {% for emp in empresas_inativas %}
-      <tr>
-        <td class="doc-name" style="color:var(--text2)">{{ emp.nome }}</td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">{{ emp.cnpj or '—' }}</td>
-        <td><span class="badge badge-none">{{ emp.categoria_nome }}</span></td>
-        <td style="white-space:nowrap">
-          <form method="POST" action="/empresa/{{ emp.id }}/reativar" style="display:inline">
-            <button type="submit" class="btn" style="font-size:11px;padding:4px 10px;margin-right:4px"><i class="ti ti-eye"></i> Reativar</button>
-          </form>
-          <form method="POST" action="/empresa/{{ emp.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir permanentemente?')">
-            <button type="submit" class="btn btn-danger" style="font-size:11px;padding:4px 10px"><i class="ti ti-trash"></i></button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
   {% else %}
-  <div style="font-size:13px;color:var(--text2);padding:12px 0">Nenhuma empresa inativa.</div>
+  <div class="vazio"><i class="ti ti-building" aria-hidden="true"></i><strong>Nenhuma empresa ativa</strong>
+    <p>{% if eh_admin and categorias %}Use o formulário acima para cadastrar a primeira.{% else %}As empresas cadastradas aparecem nesta lista.{% endif %}</p></div>
   {% endif %}
 </div>
 
+<!-- CATEGORIAS -->
+<div id="tab-categorias" class="tab-panel" role="tabpanel" aria-labelledby="aba-categorias" {% if aba_atual != 'categorias' %}hidden{% endif %}>
+  {% if eh_admin %}
+  <div class="cartao secao" style="margin-bottom:24px">
+    <h2><i class="ti ti-tag" aria-hidden="true"></i> Nova categoria</h2>
+    <form method="POST" action="{{ url_for('categoria_nova') }}" class="form-linha" style="margin-top:14px">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="campo"><label class="lbl" for="cat-nome">Nome</label><input class="form-input w-lg" id="cat-nome" type="text" name="nome" placeholder="Ex.: Postos, Restaurantes" required maxlength="60"></div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Cadastrar</button>
+    </form>
+  </div>
+  {% endif %}
+  <h2 class="sec-head">Categorias ({{ categorias|length }})</h2>
+  {% if categorias %}
+  <div class="tabela-wrap">
+  <table class="tabela">
+    <thead><tr><th scope="col">Nome</th><th scope="col">Empresas</th><th scope="col" class="acoes"><span class="sr-only">Ações</span></th></tr></thead>
+    <tbody>
+      {% for cat in categorias %}
+      <tr>
+        <td class="titulo forte" data-rotulo="Nome">{{ cat.nome }}</td>
+        <td data-rotulo="Empresas" class="contagem-cel">{{ cat.ativas or 0 }} ativa{{ 's' if (cat.ativas or 0) != 1 }}{% if cat.inativas %} · {{ cat.inativas }} inativa{{ 's' if cat.inativas != 1 }}{% endif %}</td>
+        <td class="acoes {{ '' if eh_admin else 'so-desktop' }}">
+          {% if eh_admin %}
+            {% if cat.total_empresas == 0 %}
+            <form method="POST" action="{{ url_for('categoria_excluir', cat_id=cat.id) }}" data-confirmar="Excluir a categoria {{ cat.nome }}?" data-confirmar-titulo="Excluir categoria" data-confirmar-botao="Excluir" data-perigo>
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-icone btn-danger" aria-label="Excluir {{ cat.nome }}" title="Excluir"><i class="ti ti-trash" aria-hidden="true"></i></button>
+            </form>
+            {% else %}
+            <span class="ajuda" title="Só dá para excluir categorias sem nenhuma empresa, ativa ou inativa"><i class="ti ti-lock" aria-hidden="true"></i> Tem empresas</span>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="vazio"><i class="ti ti-tags" aria-hidden="true"></i><strong>Nenhuma categoria</strong><p>Categorias agrupam as empresas por ramo, como Postos ou Hotéis.</p></div>
+  {% endif %}
+</div>
+
+<!-- DOCUMENTOS -->
+<div id="tab-documentos" class="tab-panel" role="tabpanel" aria-labelledby="aba-documentos" {% if aba_atual != 'documentos' %}hidden{% endif %}>
+  {% if eh_admin and empresas_ativas %}
+  <div class="cartao secao">
+    <h2><i class="ti ti-file-plus" aria-hidden="true"></i> Novo documento</h2>
+    <form method="POST" action="{{ url_for('documento_novo') }}" class="form-linha" style="margin-top:14px">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="campo"><label class="lbl" for="doc-emp">Empresa</label>
+        <select class="form-input w-md" id="doc-emp" name="empresa_id" required>
+          <option value="">Escolha</option>
+          {% for emp in empresas_ativas %}<option value="{{ emp.id }}">{{ emp.nome }}</option>{% endfor %}
+        </select></div>
+      <div class="campo"><label class="lbl" for="doc-tipo">Tipo</label>
+        <select class="form-input w-md" id="doc-tipo" name="tipo" required>
+          <option value="">Escolha</option>
+          {% for tipo in tipos_doc %}<option value="{{ tipo }}">{{ tipo }}</option>{% endfor %}
+        </select></div>
+      <div class="campo"><label class="lbl" for="doc-proto">Protocolo</label><input class="form-input w-sm" id="doc-proto" type="text" name="protocolo" placeholder="Opcional" maxlength="80"></div>
+      <div class="campo"><label class="lbl" for="doc-venc">Vencimento</label><input class="form-input w-sm" id="doc-venc" type="date" name="vencimento"></div>
+      <button type="submit" class="btn btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Cadastrar</button>
+    </form>
+  </div>
+  {% endif %}
+  <div class="vazio compacto"><i class="ti ti-info-circle" aria-hidden="true"></i>
+    <span>Para editar, renovar ou excluir documentos, abra a empresa em <a class="link" href="{{ url_for('empresas') }}">Empresas</a>.</span></div>
+</div>
+
+<!-- INATIVOS -->
+<div id="tab-inativos" class="tab-panel" role="tabpanel" aria-labelledby="aba-inativos" {% if aba_atual != 'inativos' %}hidden{% endif %}>
+  <h2 class="sec-head">Empresas inativas ({{ empresas_inativas|length }})</h2>
+  {% if empresas_inativas %}
+  <div class="tabela-wrap">
+  <table class="tabela">
+    <thead><tr><th scope="col">Nome</th><th scope="col">CNPJ</th><th scope="col">Categoria</th><th scope="col">Documentos</th><th scope="col" class="acoes"><span class="sr-only">Ações</span></th></tr></thead>
+    <tbody>
+      {% for emp in empresas_inativas %}
+      <tr>
+        <td class="titulo forte" data-rotulo="Nome"><a href="{{ url_for('empresa_detalhe', emp_id=emp.id) }}" style="color:var(--text2)">{{ emp.nome }}</a></td>
+        <td data-rotulo="CNPJ" class="cnpj">{{ emp.cnpj or '—' }}</td>
+        <td data-rotulo="Categoria"><span class="badge badge-neutro">{{ emp.categoria_nome }}</span></td>
+        <td data-rotulo="Documentos" class="contagem-cel num">{{ emp.total_docs }}</td>
+        <td class="acoes {{ '' if eh_admin else 'so-desktop' }}">
+          <span class="grupo-acoes">
+            <a href="{{ url_for('empresa_detalhe', emp_id=emp.id) }}" class="btn btn-icone" aria-label="Abrir {{ emp.nome }}" title="Abrir"><i class="ti ti-arrow-right" aria-hidden="true"></i></a>
+            {% if eh_admin %}
+            <form method="POST" action="{{ url_for('empresa_reativar', emp_id=emp.id) }}">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm"><i class="ti ti-eye" aria-hidden="true"></i> Reativar</button>
+            </form>
+            {% if emp.total_docs == 0 %}
+            <form method="POST" action="{{ url_for('empresa_excluir', emp_id=emp.id) }}" data-confirmar="Excluir {{ emp.nome }} de vez? Isso não pode ser desfeito." data-confirmar-titulo="Excluir empresa" data-confirmar-botao="Excluir" data-perigo>
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-icone btn-danger" aria-label="Excluir {{ emp.nome }}" title="Excluir"><i class="ti ti-trash" aria-hidden="true"></i></button>
+            </form>
+            {% endif %}
+            {% endif %}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="vazio"><i class="ti ti-eye-off" aria-hidden="true"></i><strong>Nenhuma empresa inativa</strong><p>Empresas inativadas saem das listas e dos alertas e ficam guardadas aqui.</p></div>
+  {% endif %}
+</div>
+{% endblock %}
+
 {% block scripts %}
 <script>
-function mudarTab(el, painelId) {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p=>p.style.display='none');
-  el.classList.add('active');
-  document.getElementById(painelId).style.display='';
-}
+document.querySelectorAll('[data-ir-aba]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    const aba = document.getElementById(b.dataset.irAba);
+    aba.click(); aba.focus();
+    const campo = document.getElementById('cat-nome'); if (campo) campo.focus();
+  });
+});
 </script>
-{% endblock %}
 {% endblock %}

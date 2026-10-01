@@ -3,41 +3,50 @@
 {% block title %}Responsáveis{% endblock %}
 {% block page %}
 <div class="pg-head">
-  <h1>Responsáveis</h1>
-  <div class="sub">Pessoas que recebem notificações de vencimento</div>
+  <div>
+    <h1>Responsáveis</h1>
+    <div class="sub">Pessoas que recebem os alertas de vencimento</div>
+  </div>
 </div>
-<div class="form-card" style="margin-bottom:24px">
-  <h3><i class="ti ti-user-plus"></i> Novo responsável</h3>
-  <p>Cadastre as pessoas que devem receber os alertas de vencimento por e-mail.</p>
-  <form method="POST" action="{{ url_for('responsavel_novo') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-    <div>
-      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">Nome</label>
-      <input class="form-input" type="text" name="nome" placeholder="Nome completo" required style="width:200px">
-    </div>
-    <div>
-      <label style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px;font-family:'JetBrains Mono',monospace;font-weight:700">E-mail</label>
-      <input class="form-input" type="email" name="email" placeholder="email@empresa.com" required style="width:220px">
-    </div>
-    <button type="submit" class="btn btn-primary"><i class="ti ti-plus"></i> Cadastrar</button>
+
+{% if eh_admin %}
+<div class="cartao secao">
+  <h2><i class="ti ti-user-plus" aria-hidden="true"></i> Novo responsável</h2>
+  <p class="descr">Depois de cadastrar, vincule a pessoa aos documentos na página de cada empresa.</p>
+  <form method="POST" action="{{ url_for('responsavel_novo') }}" class="form-linha">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="campo cresce"><label class="lbl" for="resp-nome">Nome</label><input class="form-input" id="resp-nome" type="text" name="nome" autocomplete="name" required maxlength="120"></div>
+    <div class="campo cresce"><label class="lbl" for="resp-email">E-mail</label><input class="form-input" id="resp-email" type="email" name="email" placeholder="nome@empresa.com.br" autocomplete="email" required maxlength="160"></div>
+    <button type="submit" class="btn btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Cadastrar</button>
   </form>
 </div>
-<div class="sec-head">Cadastrados</div>
+{% endif %}
+
+<h2 class="sec-head">Cadastrados ({{ responsaveis|length }})</h2>
 {% if responsaveis %}
-<div class="resp-grid">
+<div class="pessoa-grid">
   {% for r in responsaveis %}
-  <div class="resp-card">
-    <div class="resp-avatar">{{ r.nome[0]|upper }}</div>
-    <div style="flex:1">
-      <div class="resp-nome">{{ r.nome }}</div>
-      <div class="resp-email">{{ r.email }}</div>
+  <div class="pessoa">
+    <div class="avatar" aria-hidden="true">{{ r.nome[0]|upper }}</div>
+    <div class="pessoa-info">
+      <div class="pessoa-nome">{{ r.nome }}</div>
+      <div class="pessoa-email" title="{{ r.email }}">{{ r.email }}</div>
+      <div class="pessoa-meta"><i class="ti ti-file-certificate" aria-hidden="true"></i> {{ r.total_docs }} documento{{ 's' if r.total_docs != 1 }}</div>
     </div>
-    <form method="POST" action="/responsaveis/{{ r.id }}/excluir" onsubmit="return confirm('Remover {{ r.nome }}?')">
-      <button type="submit" class="btn btn-danger" style="padding:4px 8px;font-size:11px"><i class="ti ti-trash"></i></button>
+    {% if eh_admin %}
+    <form method="POST" action="{{ url_for('responsavel_excluir', resp_id=r.id) }}" data-confirmar="{{ r.nome }} deixa de receber os alertas de todos os documentos. Continuar?" data-confirmar-titulo="Remover responsável" data-confirmar-botao="Remover" data-perigo>
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-icone btn-danger" aria-label="Remover {{ r.nome }}" title="Remover"><i class="ti ti-trash" aria-hidden="true"></i></button>
     </form>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
 {% else %}
-<div style="font-size:13px;color:var(--text2);padding:16px 0">Nenhum responsável cadastrado ainda.</div>
+<div class="vazio">
+  <i class="ti ti-users" aria-hidden="true"></i>
+  <strong>Nenhum responsável cadastrado</strong>
+  <p>Sem responsáveis, ninguém recebe os alertas por e-mail.{% if eh_admin %} Cadastre a primeira pessoa no formulário acima.{% endif %}</p>
+</div>
 {% endif %}
 {% endblock %}

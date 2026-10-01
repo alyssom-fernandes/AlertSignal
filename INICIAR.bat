@@ -1,28 +1,29 @@
 @echo off
-title AlertSignal — Grupo Zen
+chcp 65001 >nul
+title AlertSignal
 
-echo Iniciando AlertSignal...
+echo Iniciando o AlertSignal...
 
-:: Verifica se Python esta instalado
+:: Confere se o Python está instalado
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERRO: Python nao encontrado. Instale em https://python.org
+    echo ERRO: Python não encontrado. Instale em https://python.org
     pause
-    exit
+    exit /b 1
 )
 
-:: Instala dependencias se necessario
-echo Verificando dependencias...
-pip install flask apscheduler openpyxl pandas werkzeug python-dotenv --quiet 2>nul
+:: Instala as dependências, se faltar alguma
+echo Conferindo dependências...
+python -m pip install -r "%~dp0requirements.txt" --quiet --disable-pip-version-check
 
-:: Abre o navegador apos 4 segundos em segundo plano
+:: Abre o navegador depois de 4 segundos, em segundo plano
 start "" /B PowerShell -WindowStyle Hidden -Command "Start-Sleep 4; Start-Process 'http://localhost:5000'"
 
-:: Sobe o servidor
 echo.
 echo Sistema rodando em http://localhost:5000
-echo Feche esta janela para encerrar o sistema.
+echo Feche esta janela para encerrar.
 echo.
+cd /d "%~dp0"
 python app.py
 
 pause

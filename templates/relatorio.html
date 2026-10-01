@@ -1,0 +1,117 @@
+{% extends 'layout.html' %}
+{% set active = 'relatorio' %}
+{% block title %}Relatório de vencimentos{% endblock %}
+{% block head %}<style media="print">@page { size: A4 landscape; margin: 12mm; }</style>{% endblock %}
+{% set parametros = {'status': filtros.status, 'categoria': filtros.categoria or '', 'empresa': filtros.empresa or ''} %}
+{% block page %}
+<div class="rel-cabecalho" aria-hidden="true">
+  <div>
+    <div class="titulo">AlertSignal · Relatório de vencimentos</div>
+    <div>{{ descricao }}</div>
+  </div>
+  <div class="meta">Impresso em {{ gerado_em.strftime('%d/%m/%Y às %H:%M') }}<br>{{ total }} documento{{ 's' if total != 1 }}</div>
+</div>
+
+<div class="pg-head">
+  <div>
+    <h1>Relatório de vencimentos</h1>
+    <div class="sub">{{ descricao }}</div>
+  </div>
+  {% if total %}
+  <div class="pg-acoes">
+    <button type="button" class="btn btn-primary" onclick="window.print()"><i class="ti ti-printer" aria-hidden="true"></i> Imprimir ou salvar PDF</button>
+    <a class="btn" href="{{ url_for('exportar', fmt='xlsx', **parametros) }}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> Excel</a>
+    <a class="btn" href="{{ url_for('exportar', fmt='csv', **parametros) }}" title="Texto separado por ponto e vírgula, sem formatação. Para planilha pronta, use Excel."><i class="ti ti-file-text" aria-hidden="true"></i> CSV (dados brutos)</a>
+  </div>
+  {% endif %}
+</div>
+
+<form class="filtros cartao" method="GET" action="{{ url_for('relatorio') }}" id="form-filtros" style="padding:16px">
+  <div class="campo">
+    <label class="lbl" for="f-status">Situação</label>
+    <select class="form-input" id="f-status" name="status">
+      {% for chave, (rotulo, _) in filtros_status.items() %}<option value="{{ chave }}" {% if filtros.status == chave %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label class="lbl" for="f-categoria">Categoria</label>
+    <select class="form-input" id="f-categoria" name="categoria">
+      <option value="">Todas</option>
+      {% for c in categorias %}<option value="{{ c.id }}" {% if filtros.categoria == c.id %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label class="lbl" for="f-empresa">Empresa</label>
+    <select class="form-input" id="f-empresa" name="empresa">
+      <option value="">Todas</option>
+      {% for e in lista_empresas %}<option value="{{ e.id }}" {% if filtros.empresa == e.id %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn so-sem-js"><i class="ti ti-filter" aria-hidden="true"></i> Aplicar</button>
+  {% if filtros.status != 'todos' or filtros.categoria or filtros.empresa %}
+  <a class="btn btn-ghost" href="{{ url_for('relatorio') }}">Limpar filtros</a>
+  {% endif %}
+</form>
+
+{% if total %}
+<div class="rel-totais" aria-label="Totais">
+  <span class="total"><strong>{{ total }}</strong> documento{{ 's' if total != 1 }} em {{ grupos|length }} empresa{{ 's' if grupos|length != 1 }}</span>
+  {% if totais['VENCIDO'] %}<span class="badge badge-danger">{{ totais['VENCIDO'] }} vencido{{ 's' if totais['VENCIDO'] > 1 }}</span>{% endif %}
+  {% if totais['RENOVAR'] %}<span class="badge badge-warn">{{ totais['RENOVAR'] }} a renovar</span>{% endif %}
+  {% if totais['OK'] %}<span class="badge badge-ok">{{ totais['OK'] }} em dia</span>{% endif %}
+  {% if totais['NÃO TEM'] %}<span class="badge badge-none">{{ totais['NÃO TEM'] }} sem data</span>{% endif %}
+</div>
+
+{% for g in grupos %}
+<section class="rel-grupo" aria-labelledby="grupo-{{ g.empresa_id }}">
+  <div class="rel-grupo-cab">
+    <h2 id="grupo-{{ g.empresa_id }}"><a href="{{ url_for('empresa_detalhe', emp_id=g.empresa_id) }}">{{ g.empresa }}</a></h2>
+    <span class="meta">{{ g.categoria }} · CNPJ {{ g.cnpj or 'não informado' }} · {{ g.documentos|length }} documento{{ 's' if g.documentos|length != 1 }}</span>
+  </div>
+  {% set tem_obs = g.documentos|selectattr('observacoes')|list|length > 0 %}
+  <div class="tabela-wrap">
+  <table class="tabela">
+    {% if tem_obs %}<colgroup><col style="width:19%"><col style="width:15%"><col style="width:11%"><col style="width:11%"><col style="width:10%"><col style="width:18%"><col style="width:16%"></colgroup>
+    {% else %}<colgroup><col style="width:22%"><col style="width:17%"><col style="width:13%"><col style="width:13%"><col style="width:12%"><col style="width:23%"></colgroup>{% endif %}
+    <thead><tr><th scope="col">Documento</th><th scope="col">Protocolo</th><th scope="col">Vencimento</th><th scope="col">Prazo</th><th scope="col">Status</th><th scope="col">Responsáveis</th>{% if tem_obs %}<th scope="col">Observações</th>{% endif %}</tr></thead>
+    <tbody>
+      {% for d in g.documentos %}
+      <tr>
+        <td class="titulo forte" data-rotulo="Documento">{{ d.tipo }}</td>
+        <td data-rotulo="Protocolo" class="mono {{ '' if d.protocolo else 'vazio-cel' }}" style="font-size:12px;color:var(--text2)">{{ d.protocolo or '—' }}</td>
+        <td data-rotulo="Vencimento" class="mono num" style="font-size:12px">{{ d.vencimento|formatar_data }}</td>
+        <td data-rotulo="Prazo" class="mono num {% if d.dias is none %}muted{% elif d.dias < 0 %}txt-danger{% elif d.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}" style="font-size:12px;font-weight:700;white-space:nowrap">{{ d.dias|dias_texto }}</td>
+        <td data-rotulo="Status"><span class="badge badge-{{ d.status|status_classe }}">{{ d.status|status_rotulo }}</span></td>
+        <td data-rotulo="Responsáveis" style="font-size:12px" {% if not d.responsaveis %}class="vazio-cel"{% endif %}>{{ d.responsaveis or '—' }}</td>
+        {% if tem_obs %}<td data-rotulo="Observações" class="obs {{ '' if d.observacoes else 'vazio-cel' }}">{{ d.observacoes or '—' }}</td>{% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endfor %}
+
+{% else %}
+<div class="vazio" style="padding:40px 20px">
+  <i class="ti ti-report-search" aria-hidden="true"></i>
+  <strong>Nenhum documento com esses filtros</strong>
+  <p>Troque a situação, a categoria ou a empresa para ver outros documentos.</p>
+  <a class="btn" href="{{ url_for('relatorio') }}">Ver todos os documentos</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Filtros aplicam ao trocar a escolha; o botão continua para quem navega pelo teclado */
+document.querySelectorAll('#form-filtros select').forEach(function (s) {
+  s.addEventListener('change', function () { s.form.requestSubmit(); });
+});
+/* Vindo do botão Imprimir da empresa: abre a impressão direto e limpa o parâmetro */
+if (new URLSearchParams(location.search).has('imprimir')) {
+  const url = new URL(location.href); url.searchParams.delete('imprimir'); history.replaceState(null, '', url);
+  window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });
+}
+</script>
+{% endblock %}

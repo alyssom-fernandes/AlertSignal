@@ -1,7 +1,15 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'zen.db')
+PASTA = os.path.dirname(os.path.abspath(__file__))
+
+# Banco real. O modo demonstração usa outro arquivo (demo.db), escolhido
+# por usar_banco(); assim os dados fictícios nunca tocam o banco de uso.
+DB_PATH = os.path.join(PASTA, 'zen.db')
+
+def usar_banco(caminho):
+    global DB_PATH
+    DB_PATH = caminho
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)

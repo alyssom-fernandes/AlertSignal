@@ -1,132 +1,120 @@
 {% extends 'base.html' %}
+{% macro item_menu(destino, chave, icone, rotulo, ativo, badge=0) %}
+  <a href="{{ url_for(destino) }}" class="nav-item {% if ativo == chave %}active{% endif %}" data-label="{{ rotulo }}"
+     {% if ativo == chave %}aria-current="page"{% endif %}>
+    <i class="ti {{ icone }}" aria-hidden="true"></i>
+    <span class="nav-label">{{ rotulo }}</span>
+    {% if badge %}<span class="nav-badge" aria-label="{{ badge }} documentos precisam de atenção">{{ badge }}</span>{% endif %}
+  </a>
+{% endmacro %}
 {% block content %}
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+<div class="sb-overlay" id="sb-overlay" onclick="fecharSidebarMobile()"></div>
+
 <div class="app-shell">
 
-  <!-- Botão mobile -->
-  <button class="mobile-menu-btn" onclick="abrirSidebarMobile()">
-    <i class="ti ti-menu-2"></i>
-  </button>
-
-  <nav class="sidebar" id="sidebar">
-
-    <!-- CABEÇALHO: botão colapsar no topo, logo abaixo -->
+  <nav class="sidebar" id="sidebar" aria-label="Menu principal">
     <div class="sb-header">
-      <div class="sb-toggle-btn" onclick="toggleSidebar()" title="Recolher menu">
-        <i class="ti ti-chevron-left"></i>
-      </div>
-      <img src="{{ url_for('static', filename='img/logo.png') }}"
-           alt="AlertSignal" class="sb-logo-full">
-      <img src="{{ url_for('static', filename='favicon-512.png') }}"
-           alt="AlertSignal" class="sb-logo-icon">
+      <button type="button" class="sb-toggle-btn" onclick="toggleSidebar()" aria-expanded="true" aria-controls="sidebar"
+              aria-label="Recolher menu" title="Recolher menu">
+        <i class="ti ti-chevron-left" aria-hidden="true"></i>
+      </button>
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="AlertSignal" class="sb-logo-full so-escuro" width="112" height="28">
+      <img src="{{ url_for('static', filename='img/logo-claro.png') }}" alt="AlertSignal" class="sb-logo-full so-claro" width="112" height="28">
+      <img src="{{ url_for('static', filename='favicon-512.png') }}" alt="AlertSignal" class="sb-logo-icon so-escuro" width="28" height="28">
+      <img src="{{ url_for('static', filename='img/icone-claro.png') }}" alt="AlertSignal" class="sb-logo-icon so-claro" width="28" height="28">
+      <button type="button" class="icone-btn sb-fechar" onclick="fecharSidebarMobile()" aria-label="Fechar menu"><i class="ti ti-x" aria-hidden="true"></i></button>
     </div>
 
-    <!-- NAVEGAÇÃO -->
     <div class="sb-nav">
       <div class="sb-group">Principal</div>
-      <a href="{{ url_for('dashboard') }}"
-         class="nav-item {% if active == 'dashboard' %}active{% endif %}"
-         data-label="Dashboard">
-        <i class="ti ti-layout-dashboard"></i>
-        <span class="nav-label">Dashboard</span>
-        {% if urgentes_count is defined and urgentes_count > 0 %}
-        <span class="nav-badge">{{ urgentes_count }}</span>
-        {% endif %}
-      </a>
-      <a href="{{ url_for('empresas') }}"
-         class="nav-item {% if active == 'empresas' %}active{% endif %}"
-         data-label="Empresas">
-        <i class="ti ti-building"></i>
-        <span class="nav-label">Empresas</span>
-      </a>
+      {{ item_menu('dashboard', 'dashboard', 'ti-layout-dashboard', 'Visão geral', active, urgentes_count) }}
+      {{ item_menu('empresas', 'empresas', 'ti-building', 'Empresas', active) }}
+      {{ item_menu('relatorio', 'relatorio', 'ti-report', 'Relatório', active) }}
 
       <div class="sb-group">Gestão</div>
-      <a href="{{ url_for('cadastros') }}"
-         class="nav-item {% if active == 'cadastros' %}active{% endif %}"
-         data-label="Cadastros">
-        <i class="ti ti-database"></i>
-        <span class="nav-label">Cadastros</span>
-      </a>
-      <a href="{{ url_for('responsaveis') }}"
-         class="nav-item {% if active == 'responsaveis' %}active{% endif %}"
-         data-label="Responsáveis">
-        <i class="ti ti-users"></i>
-        <span class="nav-label">Responsáveis</span>
-      </a>
-      <a href="{{ url_for('historico') }}"
-         class="nav-item {% if active == 'historico' %}active{% endif %}"
-         data-label="Histórico">
-        <i class="ti ti-history"></i>
-        <span class="nav-label">Histórico</span>
-      </a>
+      {{ item_menu('cadastros', 'cadastros', 'ti-database', 'Cadastros', active) }}
+      {{ item_menu('responsaveis', 'responsaveis', 'ti-users', 'Responsáveis', active) }}
+      {{ item_menu('historico', 'historico', 'ti-history', 'Histórico', active) }}
 
-      {% if session.get('usuario_nivel') == 'admin' %}
+      {% if eh_admin %}
       <div class="sb-group">Sistema</div>
-      <a href="{{ url_for('usuarios') }}"
-         class="nav-item {% if active == 'usuarios' %}active{% endif %}"
-         data-label="Usuários">
-        <i class="ti ti-shield-lock"></i>
-        <span class="nav-label">Usuários</span>
-      </a>
-      <a href="{{ url_for('configuracoes') }}"
-         class="nav-item {% if active == 'configuracoes' %}active{% endif %}"
-         data-label="Configurações">
-        <i class="ti ti-settings"></i>
-        <span class="nav-label">Configurações</span>
-      </a>
+      {{ item_menu('usuarios', 'usuarios', 'ti-shield-lock', 'Usuários', active) }}
+      {{ item_menu('configuracoes', 'configuracoes', 'ti-settings', 'Configurações', active) }}
       {% endif %}
     </div>
 
-    <!-- RODAPÉ -->
     <div class="sb-foot">
-
-      <!-- Expandida: ícone usuário · nome · sep · sair · tema -->
       <div class="sb-foot-expanded">
-        <i class="ti ti-user-circle" style="font-size:14px;flex-shrink:0;color:var(--text3)"></i>
-        <a href="{{ url_for('perfil') }}">{{ session.get('usuario_nome','') }}</a>
-        <span class="sep">·</span>
-        <a href="{{ url_for('logout') }}" style="color:var(--text3)">Sair</a>
-        <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
-          <i class="ti ti-sun theme-icon"></i>
-        </div>
+        <a href="{{ url_for('perfil') }}" class="sb-usuario" title="Meu perfil{{ '' if eh_admin else ' (visualizador)' }}">{{ session.get('usuario_nome','') }}</a>
+        <span aria-hidden="true" style="color:var(--text3)">·</span>
+        <a href="{{ url_for('logout') }}" class="sb-sair">Sair</a>
+        <button type="button" class="icone-btn theme-toggle" onclick="toggleTheme()" aria-label="Alternar tema">
+          <i class="ti ti-sun" aria-hidden="true"></i>
+        </button>
       </div>
-
-      <!-- Colapsada: ícones empilhados -->
       <div class="sb-foot-collapsed">
-        <a href="{{ url_for('perfil') }}" class="sb-foot-icon-btn" title="Meu perfil">
-          <i class="ti ti-user-circle"></i>
-        </a>
-        <a href="{{ url_for('logout') }}" class="sb-foot-icon-btn" title="Sair">
-          <i class="ti ti-logout"></i>
-        </a>
-        <div class="sb-foot-icon-btn theme-toggle" onclick="toggleTheme()" title="Alternar tema">
-          <i class="ti ti-sun theme-icon"></i>
-        </div>
+        <a href="{{ url_for('perfil') }}" class="icone-btn" aria-label="Meu perfil" title="Meu perfil"><i class="ti ti-user-circle" aria-hidden="true"></i></a>
+        <a href="{{ url_for('logout') }}" class="icone-btn" aria-label="Sair" title="Sair"><i class="ti ti-logout" aria-hidden="true"></i></a>
+        <button type="button" class="icone-btn theme-toggle" onclick="toggleTheme()" aria-label="Alternar tema">
+          <i class="ti ti-sun" aria-hidden="true"></i>
+        </button>
       </div>
-
     </div>
   </nav>
 
   <div class="main-area" id="main-area">
-    <div class="main-scroll">
+    <script>
+    /* Menu recolhido salvo: aplicado antes de pintar, sem animação */
+    (function () {
+      var r = null; try { r = localStorage.getItem('sidebarCollapsed'); } catch (e) {}
+      if (r === '1' && window.innerWidth > 900) {
+        document.getElementById('sidebar').classList.add('collapsed');
+        document.getElementById('main-area').classList.add('collapsed');
+        var b = document.querySelector('.sb-toggle-btn');
+        b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', 'Expandir menu'); b.title = 'Expandir menu';
+      }
+    })();
+    </script>
+
+    <header class="topo-mobile">
+      <button type="button" class="icone-btn mobile-menu-btn" onclick="abrirSidebarMobile()" aria-label="Abrir menu"
+              aria-controls="sidebar" aria-expanded="false">
+        <i class="ti ti-menu-2" aria-hidden="true"></i>
+      </button>
+      <a href="{{ url_for('dashboard') }}" aria-label="AlertSignal, ir para a visão geral">
+        <img class="so-escuro" src="{{ url_for('static', filename='img/logo.png') }}" alt="" width="96" height="24">
+        <img class="so-claro" src="{{ url_for('static', filename='img/logo-claro.png') }}" alt="" width="96" height="24">
+      </a>
+      {% if urgentes_count %}<a href="{{ url_for('relatorio', status='atencao') }}" class="nav-badge" aria-label="{{ urgentes_count }} documentos precisam de atenção">{{ urgentes_count }}</a>{% endif %}
+    </header>
+
+    <main class="main-scroll" id="conteudo" tabindex="-1">
+      {% if modo_demo %}
+      <div class="demo-faixa">
+        <i class="ti ti-player-play" aria-hidden="true"></i>
+        <span><span class="longo">Demonstração com dados fictícios. Nenhum e&#8209;mail é enviado.</span><span class="curto">Demonstração com dados fictícios</span></span>
+        <form method="POST" action="{{ url_for('demo_reiniciar') }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-sm btn-ghost"><i class="ti ti-refresh" aria-hidden="true"></i> Recomeçar dados</button>
+        </form>
+      </div>
+      {% endif %}
       {% with msgs = get_flashed_messages(with_categories=True) %}
         {% for cat, msg in msgs %}
-          <div class="flash {{ cat }}">{{ msg }}</div>
+          <div class="flash {{ cat }}" role="{{ 'alert' if cat == 'erro' else 'status' }}">
+            <i class="ti {{ 'ti-alert-circle' if cat == 'erro' else 'ti-circle-check' }}" aria-hidden="true"></i>
+            <span>{{ msg }}</span>
+          </div>
         {% endfor %}
       {% endwith %}
       {% block page %}{% endblock %}
-    </div>
+    </main>
 
     <footer class="page-footer">
-      <div class="pf-brand">
-        <span class="pf-afn">AFN</span>
-        <span class="pf-gap"></span>
-        <span class="pf-sys">SYSTEMS</span>
-      </div>
-      <span class="pf-pipe">|</span>
-      <span class="pf-info">AlertSignal</span>
+      <span class="marca"><span class="afn">AFN</span><span class="sys">SYSTEMS</span><span class="pipe" aria-hidden="true">|</span><span class="info">AlertSignal</span></span>
     </footer>
   </div>
 
 </div>
-{% block scripts %}{% endblock %}
 {% endblock %}

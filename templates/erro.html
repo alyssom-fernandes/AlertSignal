@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block content %}
+<main class="tela-avulsa">
+  <div class="caixa-avulsa larga">
+    <img class="logo pequeno so-escuro" src="{{ url_for('static', filename='img/logo.png') }}" alt="AlertSignal" width="136" height="34">
+    <img class="logo pequeno so-claro" src="{{ url_for('static', filename='img/logo-claro.png') }}" alt="AlertSignal" width="136" height="34">
+    <div class="erro-codigo" aria-hidden="true">{{ codigo }}</div>
+    <h1 class="erro-titulo">{{ titulo }}</h1>
+    <p class="erro-texto">{{ texto }}</p>
+    <div class="erro-acoes">
+      {% if codigo == 500 %}<button type="button" class="btn btn-primary" onclick="location.reload()"><i class="ti ti-refresh" aria-hidden="true"></i> Tentar de novo</button>{% endif %}
+      {% if session.get('usuario_id') %}
+        <a class="btn {{ '' if codigo == 500 else 'btn-primary' }}" href="{{ url_for('dashboard') }}"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Ir para a visão geral</a>
+        {% if codigo != 500 %}<button type="button" class="btn" onclick="history.back()"><i class="ti ti-arrow-left" aria-hidden="true"></i> Voltar</button>{% endif %}
+      {% else %}
+        <a class="btn {{ '' if codigo == 500 else 'btn-primary' }}" href="{{ url_for('login') }}"><i class="ti ti-login" aria-hidden="true"></i> Entrar no sistema</a>
+      {% endif %}
+    </div>
+    <div class="assinatura">
+      <span class="marca"><span class="afn">AFN</span><span class="sys">SYSTEMS</span><span class="pipe" aria-hidden="true">|</span><span class="info">AlertSignal</span></span>
+    </div>
+  </div>
+</main>
+{% endblock %}
