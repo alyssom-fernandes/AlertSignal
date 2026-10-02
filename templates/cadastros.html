@@ -2,7 +2,7 @@
 {% set active = 'cadastros' %}
 {% block title %}Cadastros{% endblock %}
 {% set abas = [('empresas', 'Empresas', empresas_ativas|length), ('categorias', 'Categorias', categorias|length),
-               ('documentos', 'Documentos', None), ('inativos', 'Inativos', empresas_inativas|length)] %}
+               ('documentos', 'Documentos', total_documentos), ('inativos', 'Inativos', empresas_inativas|length)] %}
 {% set aba_atual = aba if aba in ['empresas','categorias','documentos','inativos'] else 'empresas' %}
 {% block page %}
 <div class="pg-head">
@@ -28,10 +28,10 @@
 <!-- EMPRESAS -->
 <div id="tab-empresas" class="tab-panel" role="tabpanel" aria-labelledby="aba-empresas" {% if aba_atual != 'empresas' %}hidden{% endif %}>
   {% if eh_admin %}
-  <div class="cartao secao" style="margin-bottom:24px">
+  <div class="cartao secao">
     <h2><i class="ti ti-building-plus" aria-hidden="true"></i> Nova empresa</h2>
     {% if categorias %}
-    <form method="POST" action="{{ url_for('empresa_nova') }}" class="form-linha" style="margin-top:14px">
+    <form method="POST" action="{{ url_for('empresa_nova') }}" class="form-linha">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <div class="campo cresce"><label class="lbl" for="emp-nome">Razão social</label><input class="form-input" id="emp-nome" type="text" name="nome" required maxlength="160"></div>
       <div class="campo"><label class="lbl" for="emp-cnpj">CNPJ</label><input class="form-input w-md" id="emp-cnpj" type="text" name="cnpj" placeholder="00.000.000/0000-00" inputmode="numeric" maxlength="18"></div>
@@ -43,7 +43,7 @@
       <button type="submit" class="btn btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Cadastrar</button>
     </form>
     {% else %}
-    <div class="vazio compacto" style="margin-top:12px"><i class="ti ti-tags" aria-hidden="true"></i>
+    <div class="vazio compacto"><i class="ti ti-tags" aria-hidden="true"></i>
       <span>Antes da primeira empresa, crie uma categoria (por exemplo, Postos ou Restaurantes).</span>
       <button type="button" class="btn btn-sm btn-primary" data-ir-aba="aba-categorias">Criar categoria</button></div>
     {% endif %}
@@ -94,9 +94,9 @@
 <!-- CATEGORIAS -->
 <div id="tab-categorias" class="tab-panel" role="tabpanel" aria-labelledby="aba-categorias" {% if aba_atual != 'categorias' %}hidden{% endif %}>
   {% if eh_admin %}
-  <div class="cartao secao" style="margin-bottom:24px">
+  <div class="cartao secao">
     <h2><i class="ti ti-tag" aria-hidden="true"></i> Nova categoria</h2>
-    <form method="POST" action="{{ url_for('categoria_nova') }}" class="form-linha" style="margin-top:14px">
+    <form method="POST" action="{{ url_for('categoria_nova') }}" class="form-linha">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <div class="campo"><label class="lbl" for="cat-nome">Nome</label><input class="form-input w-lg" id="cat-nome" type="text" name="nome" placeholder="Ex.: Postos, Restaurantes" required maxlength="60"></div>
       <button type="submit" class="btn btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Cadastrar</button>
@@ -140,7 +140,7 @@
   {% if eh_admin and empresas_ativas %}
   <div class="cartao secao">
     <h2><i class="ti ti-file-plus" aria-hidden="true"></i> Novo documento</h2>
-    <form method="POST" action="{{ url_for('documento_novo') }}" class="form-linha" style="margin-top:14px">
+    <form method="POST" action="{{ url_for('documento_novo') }}" class="form-linha">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <div class="campo"><label class="lbl" for="doc-emp">Empresa</label>
         <select class="form-input w-md" id="doc-emp" name="empresa_id" required>
@@ -172,7 +172,7 @@
     <tbody>
       {% for emp in empresas_inativas %}
       <tr>
-        <td class="titulo forte" data-rotulo="Nome"><a href="{{ url_for('empresa_detalhe', emp_id=emp.id) }}" style="color:var(--text2)">{{ emp.nome }}</a></td>
+        <td class="titulo forte" data-rotulo="Nome"><a class="apagado" href="{{ url_for('empresa_detalhe', emp_id=emp.id) }}">{{ emp.nome }}</a></td>
         <td data-rotulo="CNPJ" class="cnpj">{{ emp.cnpj or '—' }}</td>
         <td data-rotulo="Categoria"><span class="badge badge-neutro">{{ emp.categoria_nome }}</span></td>
         <td data-rotulo="Documentos" class="contagem-cel num">{{ emp.total_docs }}</td>

@@ -1,60 +1,50 @@
-<p align="center">
-  <img src="static/img/logo.png" alt="AlertSignal" height="60">
-</p>
+# AlertSignal
 
-<p align="center">
-  <strong>Controle de vencimento de alvarás e licenças, com alertas automáticos por e-mail.</strong>
-</p>
+![AlertSignal: a visão geral no computador e a página de uma empresa no celular](docs/telas/capa.png)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white">
-  <img src="https://img.shields.io/badge/Flask-3-000000?style=flat&logo=flask&logoColor=white">
-  <img src="https://img.shields.io/badge/SQLite-embutido-003B57?style=flat&logo=sqlite&logoColor=white">
-  <img src="https://img.shields.io/badge/APScheduler-automatizado-4CAF50?style=flat">
-  <img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue?style=flat">
-</p>
+O AlertSignal acompanha os alvarás, licenças e documentos regulatórios de um
+grupo de empresas e avisa os responsáveis por e-mail antes que algum vença.
+Ele substituiu uma planilha mantida à mão: roda numa máquina da empresa, sem
+nuvem, e guarda tudo num único arquivo SQLite.
 
-<p align="center"><a href="README.md">English</a> · Português</p>
+[![Testes](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml)
+![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-embutido-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![Tema](https://img.shields.io/badge/tema-claro_e_escuro-e03030?style=flat-square)
+![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue?style=flat-square)
 
----
+Este README também está em [inglês](README.md).
 
-O AlertSignal acompanha os alvarás, licenças e documentos regulatórios de um grupo de empresas e avisa os responsáveis por e-mail antes que algum vença.
+## Em 30 segundos
 
-Ele substituiu uma planilha mantida à mão. Roda numa máquina da empresa, sem nuvem, e guarda tudo num único arquivo SQLite.
+1. Rode a demonstração, com dados fictícios e sem enviar nenhum e-mail:
+   ```bash
+   pip install -r requirements.txt
+   python app.py --demo
+   ```
+   No Windows, basta dar duplo clique em `DEMONSTRACAO.bat`.
+2. Abra `http://localhost:5000` e clique em **Entrar como administrador**.
+3. Na visão geral, abra um documento em **Atenção urgente**, renove e veja a
+   linha mudar de lugar e o histórico registrar quem fez.
+4. Em **Relatório**, escolha "Vencidos e a renovar" e use **Imprimir ou salvar PDF**.
+5. Saia e entre como **visualizador**: tudo continua visível, mas só para consulta.
 
----
+## Telas
 
-## Capturas
+Capturadas do modo demonstração.
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Visão geral" width="760">
-</p>
-<p align="center"><em>Visão geral: totais por situação, vencimentos dos próximos 12 meses e o que precisa de atenção agora</em></p>
+| Visão geral, tema escuro | Página da empresa, tema claro |
+|---|---|
+| ![Visão geral no tema escuro, com os totais por situação e o gráfico dos próximos 12 meses](docs/telas/visao-geral-escuro.png) | ![Página de uma empresa no tema claro, com os documentos do mais urgente para o em dia](docs/telas/empresa-claro.png) |
+| **Relatório, tema claro** | **Empresas, tema escuro** |
+| ![Relatório de vencimentos no tema claro, filtrado por vencidos e a renovar](docs/telas/relatorio-claro.png) | ![Empresas separadas por categoria, no tema escuro](docs/telas/empresas-escuro.png) |
+| **Entrada, com os botões da demonstração** | **O relatório em PDF** |
+| ![Tela de entrada no tema escuro](docs/telas/entrada-escuro.png) | ![Primeira página do relatório salvo em PDF, em paisagem](docs/telas/pdf-relatorio.png) |
 
-<p align="center">
-  <img src="docs/screenshots/empresa_detalhe.png" alt="Página da empresa" width="760">
-</p>
-<p align="center"><em>Página da empresa: documentos do mais urgente para o em dia, com renovação, edição e responsáveis</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/relatorio.png" alt="Relatório" width="760">
-</p>
-<p align="center"><em>Relatório de vencimentos no tema claro, pronto para imprimir ou salvar em PDF</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/empresas.png" alt="Empresas" width="760">
-</p>
-<p align="center"><em>Empresas separadas por categoria, com a situação de cada uma</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/celular.png" alt="No celular" width="760">
-</p>
-<p align="center"><em>No celular: tabelas viram cartões e o menu vira gaveta</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/login.png" alt="Entrada" width="760">
-</p>
-<p align="center"><em>Entrada, com os botões da demonstração</em></p>
+| No celular, tema claro | No celular, tema escuro |
+|---|---|
+| <img src="docs/telas/celular-claro.png" alt="Página de uma empresa no celular, tema claro" width="260"> | <img src="docs/telas/celular-escuro.png" alt="Visão geral no celular, tema escuro" width="260"> |
 
 ---
 
@@ -107,7 +97,7 @@ Os dados ficam em `zen.db`, que não vai para o git. Se houver uma planilha `ALV
 python -m unittest discover -s tests -v
 ```
 
-Os testes rodam no modo demonstração, num banco temporário, e cobrem as páginas, as permissões do visualizador, a proteção contra CSRF, as exportações e o e-mail de alerta.
+Os mesmos testes rodam no GitHub Actions a cada envio. Eles usam o modo demonstração, num banco temporário, e cobrem as páginas, as permissões do visualizador, a proteção contra CSRF, as exportações e o e-mail de alerta.
 
 ---
 
@@ -161,6 +151,8 @@ alertsignal/
 ├── demo_seed.py            # Dados fictícios do modo demonstração
 ├── importar_planilha.py    # Importação da planilha antiga (uma vez)
 ├── tests/test_rotas.py     # Testes (unittest)
+├── .github/workflows/      # Testes no GitHub Actions a cada envio
+├── docs/telas/             # Imagens deste README e da prévia de link
 ├── INICIAR.bat             # Inicia o sistema no Windows
 ├── DEMONSTRACAO.bat        # Inicia a demonstração no Windows
 ├── static/

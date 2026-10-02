@@ -47,7 +47,7 @@
     <div class="sb-foot">
       <div class="sb-foot-expanded">
         <a href="{{ url_for('perfil') }}" class="sb-usuario" title="Meu perfil{{ '' if eh_admin else ' (visualizador)' }}">{{ session.get('usuario_nome','') }}</a>
-        <span aria-hidden="true" style="color:var(--text3)">·</span>
+        <span class="sep" aria-hidden="true">·</span>
         <a href="{{ url_for('logout') }}" class="sb-sair">Sair</a>
         <button type="button" class="icone-btn theme-toggle" onclick="toggleTheme()" aria-label="Alternar tema">
           <i class="ti ti-sun" aria-hidden="true"></i>

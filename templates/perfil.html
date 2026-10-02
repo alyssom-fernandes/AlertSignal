@@ -17,17 +17,17 @@
   <section class="cartao" aria-labelledby="perfil-dados">
     <h2 id="perfil-dados"><i class="ti ti-user" aria-hidden="true"></i> Dados pessoais</h2>
     <p class="descr">O nome aparece no menu e no histórico das alterações.</p>
-    <form method="POST" action="{{ url_for('perfil') }}">
+    <form method="POST" action="{{ url_for('perfil') }}" class="pilha-form">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <input type="hidden" name="acao" value="nome">
-      <div class="campo" style="margin-bottom:14px">
+      <div class="campo">
         <label class="lbl" for="perfil-nome">Nome</label>
         <input class="form-input" id="perfil-nome" type="text" name="nome" value="{{ usuario.nome }}" autocomplete="name" required maxlength="120">
       </div>
-      <div class="campo" style="margin-bottom:18px">
+      <div class="campo">
         <span class="lbl">Nível de acesso</span>
         <div><span class="badge {{ 'badge-acc' if usuario.nivel == 'admin' else 'badge-neutro' }}">{{ niveis.get(usuario.nivel, usuario.nivel) }}</span>
-          <span class="ajuda" style="margin-left:6px">{{ 'Pode cadastrar, editar e excluir.' if usuario.nivel == 'admin' else 'Pode consultar tudo, sem alterar.' }}</span></div>
+          <span class="ajuda">{{ 'Pode cadastrar, editar e excluir.' if usuario.nivel == 'admin' else 'Pode consultar tudo, sem alterar.' }}</span></div>
       </div>
       <button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy" aria-hidden="true"></i> Salvar nome</button>
     </form>
@@ -36,11 +36,11 @@
   <section class="cartao" aria-labelledby="perfil-senha">
     <h2 id="perfil-senha"><i class="ti ti-lock" aria-hidden="true"></i> Alterar senha</h2>
     <p class="descr">Use pelo menos 6 caracteres.</p>
-    <form method="POST" action="{{ url_for('perfil') }}">
+    <form method="POST" action="{{ url_for('perfil') }}" class="pilha-form">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <input type="hidden" name="acao" value="senha">
       <input type="text" name="username" value="{{ usuario.email }}" autocomplete="username" hidden>
-      <div class="campo" style="margin-bottom:12px">
+      <div class="campo">
         <label class="lbl" for="senha-atual">Senha atual</label>
         <div class="campo-senha">
           <input class="form-input" id="senha-atual" type="password" name="senha_atual" autocomplete="current-password" required
@@ -49,14 +49,14 @@
         </div>
         {% if erro_senha %}<span class="erro-campo" id="senha-erro" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i> {{ erro }}</span>{% endif %}
       </div>
-      <div class="campo" style="margin-bottom:12px">
+      <div class="campo">
         <label class="lbl" for="senha-nova">Nova senha</label>
         <div class="campo-senha">
           <input class="form-input" id="senha-nova" type="password" name="senha_nova" minlength="6" autocomplete="new-password" required>
           <button type="button" data-ver-senha="senha-nova" aria-label="Mostrar senha" aria-pressed="false"><i class="ti ti-eye" aria-hidden="true"></i></button>
         </div>
       </div>
-      <div class="campo" style="margin-bottom:18px">
+      <div class="campo">
         <label class="lbl" for="senha-conf">Repita a nova senha</label>
         <div class="campo-senha">
           <input class="form-input" id="senha-conf" type="password" name="senha_conf" minlength="6" autocomplete="new-password" required>

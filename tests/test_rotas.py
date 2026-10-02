@@ -155,10 +155,11 @@ class TestRegrasDaConferencia(Base):
         self.assertNotIn('Autopeças Avenida', empresas)
 
     def test_data_invalida_e_recusada(self):
+        self.assertTrue(self.post_json('/api/doc/1/editar', {'vencimento': '2030-05-20'}).get_json()['ok'])
         r = self.post_json('/api/doc/1/editar', {'vencimento': '31/12/2027'})
         self.assertEqual(r.status_code, 400)
         conn = database.get_connection()
-        self.assertIsNotNone(conn.execute('SELECT vencimento FROM documentos WHERE id=1').fetchone()[0])
+        self.assertEqual(conn.execute('SELECT vencimento FROM documentos WHERE id=1').fetchone()[0], '2030-05-20')
         conn.close()
 
     def test_remover_responsavel_apaga_vinculos(self):

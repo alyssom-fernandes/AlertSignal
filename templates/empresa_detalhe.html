@@ -14,7 +14,7 @@
 <a class="voltar" href="{{ url_for('empresas') }}"><i class="ti ti-arrow-left" aria-hidden="true"></i> Empresas · {{ empresa.categoria }}</a>
 
 <div class="pg-head">
-  <div style="min-width:0">
+  <div>
     <h1>{{ empresa.nome }}</h1>
     <div class="sub">CNPJ {{ empresa.cnpj or 'não informado' }}{% if not empresa.ativa %} · <span class="badge badge-none">Inativa</span>{% endif %}{% if not eh_admin %} · <span class="badge badge-neutro"><i class="ti ti-eye" aria-hidden="true"></i> Somente consulta</span>{% endif %}</div>
   </div>
@@ -66,11 +66,11 @@
       <td data-rotulo="Protocolo">
         {% if eh_admin %}
         <button type="button" class="proto-btn" data-acao="protocolo" aria-label="Protocolo de {{ doc.tipo }}: {{ doc.protocolo or 'não informado' }}. Editar">{{ doc.protocolo or '—' }}<i class="ti ti-pencil" aria-hidden="true"></i></button>
-        {% else %}<span class="mono" style="font-size:12px;color:var(--text2)">{{ doc.protocolo or '—' }}</span>{% endif %}
+        {% else %}<span class="cel-proto">{{ doc.protocolo or '—' }}</span>{% endif %}
       </td>
-      <td data-rotulo="Vencimento" class="mono num" style="font-size:12px">{{ doc.vencimento|formatar_data }}</td>
-      <td data-rotulo="Prazo" class="mono num {% if doc.dias is none %}muted{% elif doc.dias < 0 %}txt-danger{% elif doc.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}" style="font-size:12px;font-weight:700;white-space:nowrap">{{ doc.dias|dias_texto }}</td>
-      <td data-rotulo="Status"><span class="badge badge-{{ doc.status|status_classe }}">{{ doc.status|status_rotulo }}</span></td>
+      <td data-rotulo="Vencimento" class="cel-data num">{{ doc.vencimento|formatar_data }}</td>
+      <td data-rotulo="Prazo" class="cel-prazo so-desktop {% if doc.dias is none %}muted{% elif doc.dias < 0 %}txt-danger{% elif doc.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}">{{ doc.dias|dias_texto }}</td>
+      <td data-rotulo="Status"><span class="badge badge-{{ doc.status|status_classe }}">{{ doc.status|status_rotulo }}</span>{% if doc.dias is not none %}<span class="prazo-junto {% if doc.dias is none %}muted{% elif doc.dias < 0 %}txt-danger{% elif doc.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}">{{ doc.dias|dias_texto }}</span>{% endif %}</td>
       <td data-rotulo="Responsáveis">
         <div class="resp-chips" id="chips-{{ doc.id }}">
           {% for r in doc.responsaveis %}
@@ -202,7 +202,7 @@
           {% for t in tipos_doc %}<option value="{{ t }}">{{ t }}{% if t not in tipos_faltando %} (já cadastrado){% endif %}</option>{% endfor %}
         </select>
       </div>
-      <div class="campo"><label class="lbl" for="novo-protocolo">Protocolo <span style="text-transform:none;letter-spacing:0">(opcional)</span></label><input class="form-input" type="text" id="novo-protocolo" name="protocolo" maxlength="80"></div>
+      <div class="campo"><label class="lbl" for="novo-protocolo">Protocolo <span class="opcional">(opcional)</span></label><input class="form-input" type="text" id="novo-protocolo" name="protocolo" maxlength="80"></div>
       <div class="campo"><label class="lbl" for="novo-vencimento">Vencimento</label><input class="form-input" type="date" id="novo-vencimento" name="vencimento">
         <span class="ajuda">Sem data, o documento aparece como "sem data" até alguém informar.</span></div>
     </div>

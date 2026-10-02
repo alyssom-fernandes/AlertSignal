@@ -35,7 +35,7 @@
     <div class="linha">
       <div class="avatar {{ 'azul' if u.nivel == 'admin' else '' }}" aria-hidden="true">{{ u.nome[0]|upper }}</div>
       <div class="pessoa-info">
-        <div class="pessoa-nome">{{ u.nome }}{% if u.id == session.get('usuario_id') %} <span class="ajuda" style="font-weight:500">(você)</span>{% endif %}</div>
+        <div class="pessoa-nome">{{ u.nome }}{% if u.id == session.get('usuario_id') %} <span class="ajuda voce">(você)</span>{% endif %}</div>
         <div class="pessoa-email" title="{{ u.email }}">{{ u.email }}</div>
         <div class="pessoa-meta"><span class="badge {{ 'badge-acc' if u.nivel == 'admin' else 'badge-neutro' }}">{{ niveis.get(u.nivel, u.nivel) }}</span></div>
       </div>

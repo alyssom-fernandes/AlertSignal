@@ -1,60 +1,51 @@
-<p align="center">
-  <img src="static/img/logo.png" alt="AlertSignal" height="60">
-</p>
+# AlertSignal
 
-<p align="center">
-  <strong>Expiration tracking for business licenses and permits, with automated email alerts.</strong>
-</p>
+![AlertSignal: the overview on a computer and a company page on a phone](docs/telas/capa.png)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white">
-  <img src="https://img.shields.io/badge/Flask-3-000000?style=flat&logo=flask&logoColor=white">
-  <img src="https://img.shields.io/badge/SQLite-embedded-003B57?style=flat&logo=sqlite&logoColor=white">
-  <img src="https://img.shields.io/badge/APScheduler-automated-4CAF50?style=flat">
-  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat">
-</p>
+AlertSignal tracks the business licenses, permits and regulatory documents
+of a group of companies and emails the people in charge before anything
+expires. It replaced a spreadsheet kept by hand: it runs on one machine
+inside the company, with no cloud, and keeps everything in a single SQLite
+file. The interface is in Brazilian Portuguese.
 
-<p align="center">English · <a href="README.pt-br.md">Português</a></p>
+[![Tests](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml)
+![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-embedded-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![Theme](https://img.shields.io/badge/theme-light_and_dark-e03030?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
----
+This README is also available in [Portuguese](README.pt-br.md).
 
-AlertSignal tracks the business licenses, permits and regulatory documents of a group of companies and emails the people in charge before anything expires.
+## In 30 seconds
 
-It replaced a spreadsheet that was kept by hand. It runs on one machine inside the company, with no cloud, and keeps everything in a single SQLite file. The interface is in Brazilian Portuguese.
+1. Run the demo, with fictitious data and no email ever sent:
+   ```bash
+   pip install -r requirements.txt
+   python app.py --demo
+   ```
+   On Windows, just double-click `DEMONSTRACAO.bat`.
+2. Open `http://localhost:5000` and click **Entrar como administrador** (sign in as admin).
+3. On the overview, open a document under **Atenção urgente**, renew it, and
+   watch the row move and the history record who did it.
+4. In **Relatório**, pick "Vencidos e a renovar" and use **Imprimir ou salvar PDF**.
+5. Sign out and sign in as **visualizador** (viewer): everything is still visible, but read-only.
 
----
+## Screens
 
-## Screenshots
+Captured from demo mode.
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Overview" width="760">
-</p>
-<p align="center"><em>Overview: totals by status, expirations over the next 12 months and what needs attention now</em></p>
+| Overview, dark theme | Company page, light theme |
+|---|---|
+| ![Overview in the dark theme, with totals by status and the 12-month chart](docs/telas/visao-geral-escuro.png) | ![A company page in the light theme, documents from most urgent to up to date](docs/telas/empresa-claro.png) |
+| **Report, light theme** | **Companies, dark theme** |
+| ![Expiration report in the light theme, filtered to expired and due](docs/telas/relatorio-claro.png) | ![Companies grouped by category, dark theme](docs/telas/empresas-escuro.png) |
+| **Sign in, with the demo buttons** | **The report as a PDF** |
+| ![Sign-in screen in the dark theme](docs/telas/entrada-escuro.png) | ![First page of the report saved as PDF, landscape](docs/telas/pdf-relatorio.png) |
 
-<p align="center">
-  <img src="docs/screenshots/empresa_detalhe.png" alt="Company page" width="760">
-</p>
-<p align="center"><em>Company page: documents from most urgent to up to date, with renewal, editing and assignees</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/relatorio.png" alt="Report" width="760">
-</p>
-<p align="center"><em>Expiration report in the light theme, ready to print or save as PDF</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/empresas.png" alt="Companies" width="760">
-</p>
-<p align="center"><em>Companies grouped by category, each with its status</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/celular.png" alt="On a phone" width="760">
-</p>
-<p align="center"><em>On a phone: tables become cards and the menu becomes a drawer</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/login.png" alt="Sign in" width="760">
-</p>
-<p align="center"><em>Sign in, with the demo buttons</em></p>
+| On a phone, light theme | On a phone, dark theme |
+|---|---|
+| <img src="docs/telas/celular-claro.png" alt="A company page on a phone, light theme" width="260"> | <img src="docs/telas/celular-escuro.png" alt="Overview on a phone, dark theme" width="260"> |
 
 ---
 
@@ -107,7 +98,7 @@ Data lives in `zen.db`, which is not committed. If an `ALVARAS_GRUPO_ZEN.xlsx` s
 python -m unittest discover -s tests -v
 ```
 
-The tests run in demo mode on a temporary database and cover the pages, viewer permissions, CSRF protection, exports and the alert email.
+The same tests run on GitHub Actions on every push. They use demo mode on a temporary database and cover the pages, viewer permissions, CSRF protection, exports and the alert email.
 
 ---
 
@@ -161,6 +152,8 @@ alertsignal/
 ├── demo_seed.py            # Demo-mode fictitious data
 ├── importar_planilha.py    # One-time import of the old spreadsheet
 ├── tests/test_rotas.py     # Tests (unittest)
+├── .github/workflows/      # Tests on GitHub Actions on every push
+├── docs/telas/             # Images for this README and the link preview
 ├── INICIAR.bat             # Starts the app on Windows
 ├── DEMONSTRACAO.bat        # Starts the demo on Windows
 ├── static/

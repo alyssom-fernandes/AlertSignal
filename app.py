@@ -613,9 +613,10 @@ def cadastros():
     ''').fetchall()
     conn.close()
     aba = request.args.get('aba', 'empresas')
+    total_documentos = sum(e['total_docs'] for e in empresas_ativas)
     return render_template('cadastros.html', categorias=categorias,
                            empresas_ativas=empresas_ativas, empresas_inativas=empresas_inativas,
-                           tipos_doc=TIPOS_DOC, aba=aba)
+                           tipos_doc=TIPOS_DOC, aba=aba, total_documentos=total_documentos)
 
 @app.route('/empresa/nova', methods=['POST'])
 @admin_obrigatorio

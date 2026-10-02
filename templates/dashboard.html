@@ -70,16 +70,15 @@
 </div>
 
 {% set total_meses = meses|sum(attribute='total') %}
-<section class="cartao secao" aria-labelledby="grafico-titulo">
+<section class="secao" aria-labelledby="grafico-titulo">
+  <h2 class="sec-head" id="grafico-titulo">Vencimentos nos próximos 12 meses</h2>
+  <div class="cartao">
   <div class="grafico-cab">
-    <div>
-      <h2 id="grafico-titulo"><i class="ti ti-chart-bar" aria-hidden="true"></i> Vencimentos nos próximos 12 meses</h2>
-      <p class="descr" style="margin:0">{{ total_meses }} documento{{ 's' if total_meses != 1 }} por mês de vencimento. Os já vencidos não entram aqui.</p>
-    </div>
+    <p class="descr">{{ total_meses }} documento{{ 's' if total_meses != 1 }} por mês de vencimento. Os já vencidos não entram aqui.</p>
     {% if total_meses %}
     <div class="legenda" aria-hidden="true">
-      <span><i style="background:var(--serie-2)"></i> A renovar (até {{ limite_renovar }} dias)</span>
-      <span><i style="background:var(--serie-1)"></i> Mais adiante</span>
+      <span><i class="s2"></i> A renovar (até {{ limite_renovar }} dias)</span>
+      <span><i class="s1"></i> Mais adiante</span>
     </div>
     {% endif %}
   </div>
@@ -124,6 +123,7 @@
   {% else %}
   <div class="vazio compacto"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Nenhum documento vence nos próximos 12 meses.</span></div>
   {% endif %}
+  </div>
 </section>
 
 <section class="secao" aria-labelledby="urgentes-titulo">

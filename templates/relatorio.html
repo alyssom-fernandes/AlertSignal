@@ -26,7 +26,9 @@
   {% endif %}
 </div>
 
-<form class="filtros cartao" method="GET" action="{{ url_for('relatorio') }}" id="form-filtros" style="padding:16px">
+<details class="filtros-det" id="filtros-det" open>
+<summary class="filtros-resumo"><i class="ti ti-filter" aria-hidden="true"></i> Filtros <span class="muted">· {{ descricao }}</span><i class="ti ti-chevron-down seta" aria-hidden="true"></i></summary>
+<form class="filtros cartao" method="GET" action="{{ url_for('relatorio') }}" id="form-filtros">
   <div class="campo">
     <label class="lbl" for="f-status">Situação</label>
     <select class="form-input" id="f-status" name="status">
@@ -52,6 +54,7 @@
   <a class="btn btn-ghost" href="{{ url_for('relatorio') }}">Limpar filtros</a>
   {% endif %}
 </form>
+</details>
 
 {% if total %}
 <div class="rel-totais" aria-label="Totais">
@@ -78,11 +81,11 @@
       {% for d in g.documentos %}
       <tr>
         <td class="titulo forte" data-rotulo="Documento">{{ d.tipo }}</td>
-        <td data-rotulo="Protocolo" class="mono {{ '' if d.protocolo else 'vazio-cel' }}" style="font-size:12px;color:var(--text2)">{{ d.protocolo or '—' }}</td>
-        <td data-rotulo="Vencimento" class="mono num" style="font-size:12px">{{ d.vencimento|formatar_data }}</td>
-        <td data-rotulo="Prazo" class="mono num {% if d.dias is none %}muted{% elif d.dias < 0 %}txt-danger{% elif d.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}" style="font-size:12px;font-weight:700;white-space:nowrap">{{ d.dias|dias_texto }}</td>
-        <td data-rotulo="Status"><span class="badge badge-{{ d.status|status_classe }}">{{ d.status|status_rotulo }}</span></td>
-        <td data-rotulo="Responsáveis" style="font-size:12px" {% if not d.responsaveis %}class="vazio-cel"{% endif %}>{{ d.responsaveis or '—' }}</td>
+        <td data-rotulo="Protocolo" class="cel-proto {{ '' if d.protocolo else 'vazio-cel' }}">{{ d.protocolo or '—' }}</td>
+        <td data-rotulo="Vencimento" class="cel-data num">{{ d.vencimento|formatar_data }}</td>
+        <td data-rotulo="Prazo" class="cel-prazo so-desktop {% if d.dias is none %}muted{% elif d.dias < 0 %}txt-danger{% elif d.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}">{{ d.dias|dias_texto }}</td>
+        <td data-rotulo="Status"><span class="badge badge-{{ d.status|status_classe }}">{{ d.status|status_rotulo }}</span>{% if d.dias is not none %}<span class="prazo-junto {% if d.dias is none %}muted{% elif d.dias < 0 %}txt-danger{% elif d.dias <= limite_renovar %}txt-warn{% else %}txt-ok{% endif %}">{{ d.dias|dias_texto }}</span>{% endif %}</td>
+        <td data-rotulo="Responsáveis" class="cel-pequena {{ '' if d.responsaveis else 'vazio-cel' }}">{{ d.responsaveis or '—' }}</td>
         {% if tem_obs %}<td data-rotulo="Observações" class="obs {{ '' if d.observacoes else 'vazio-cel' }}">{{ d.observacoes or '—' }}</td>{% endif %}
       </tr>
       {% endfor %}
@@ -93,7 +96,7 @@
 {% endfor %}
 
 {% else %}
-<div class="vazio" style="padding:40px 20px">
+<div class="vazio grande">
   <i class="ti ti-report-search" aria-hidden="true"></i>
   <strong>Nenhum documento com esses filtros</strong>
   <p>Troque a situação, a categoria ou a empresa para ver outros documentos.</p>
@@ -104,7 +107,9 @@
 
 {% block scripts %}
 <script>
-/* Filtros aplicam ao trocar a escolha; o botão continua para quem navega pelo teclado */
+/* No celular os filtros começam recolhidos (o resumo mostra o filtro ativo) */
+if (window.matchMedia('(max-width: 720px)').matches) document.getElementById('filtros-det').open = false;
+/* Filtros aplicam ao trocar a escolha; sem JavaScript, o botão Aplicar aparece */
 document.querySelectorAll('#form-filtros select').forEach(function (s) {
   s.addEventListener('change', function () { s.form.requestSubmit(); });
 });
