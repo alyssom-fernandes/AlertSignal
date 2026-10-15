@@ -11,6 +11,8 @@ import os
 import re
 import secrets
 import sys
+import threading
+import time
 import atexit
 
 load_dotenv()
@@ -23,12 +25,14 @@ if MODO_DEMO:
 
 import database
 from database import get_connection, init_db, inserir_configuracoes_padrao, get_config, set_config
-from importar_planilha import importar
+from importar_planilha import importar, achar_planilha
 from notificacoes import executar_verificacao_diaria, calcular_dias, recalcular_status
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
+# Cookie só por HTTPS quando o sistema estiver atrás de um (ALERTSIGNAL_HTTPS=1)
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
+                  SESSION_COOKIE_SECURE=os.environ.get('ALERTSIGNAL_HTTPS') == '1')
 scheduler = None
 
 TIPOS_DOC = [
@@ -81,6 +85,80 @@ def verificar_csrf():
     flash('A sessão expirou. Tente de novo.', 'erro')
     return redirect(request.referrer or url_for('login'))
 
+# ─── CABEÇALHOS DE SEGURANÇA ──────────────────────────────────────────────────
+# Fontes e ícones são servidos daqui mesmo (static/vendor), então nada precisa
+# vir de fora. Os scripts e estilos embutidos nas páginas (tema antes da
+# primeira pintura, onclick dos botões) exigem 'unsafe-inline'.
+
+CSP = '; '.join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+
+@app.after_request
+def cabecalhos_de_seguranca(resp):
+    resp.headers.setdefault('Content-Security-Policy', CSP)
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'DENY')
+    resp.headers.setdefault('Referrer-Policy', 'same-origin')
+    return resp
+
+# ─── LIMITE DE TENTATIVAS DE ENTRADA ──────────────────────────────────────────
+# Cinco senhas erradas para o mesmo e-mail, ou vinte vindas do mesmo endereço,
+# dentro de 15 minutos bloqueiam a entrada até a mais antiga sair da janela.
+# A contagem fica na memória do processo: reiniciar o servidor a zera.
+
+MAX_FALHAS_EMAIL = 5
+MAX_FALHAS_IP = 20
+JANELA_FALHAS = 15 * 60   # segundos
+_falhas = {}              # 'e:<email>' ou 'i:<ip>' -> instantes das falhas
+_trava_falhas = threading.Lock()
+
+def _chaves_login(email):
+    return ('e:' + email.lower(), MAX_FALHAS_EMAIL), ('i:' + (request.remote_addr or '?'), MAX_FALHAS_IP)
+
+def _segundos_de_bloqueio(email):
+    """Quanto falta para liberar a entrada (0 se não está bloqueada)."""
+    agora = time.monotonic()
+    falta = 0
+    with _trava_falhas:
+        for chave, maximo in _chaves_login(email):
+            recentes = [t for t in _falhas.get(chave, []) if agora - t < JANELA_FALHAS]
+            if recentes:
+                _falhas[chave] = recentes
+            else:
+                _falhas.pop(chave, None)
+            if len(recentes) >= maximo:
+                falta = max(falta, recentes[-maximo] + JANELA_FALHAS - agora)
+    return falta
+
+def _registrar_falha(email):
+    agora = time.monotonic()
+    with _trava_falhas:
+        for chave, _ in _chaves_login(email):
+            _falhas.setdefault(chave, []).append(agora)
+
+def _limpar_falhas(email):
+    with _trava_falhas:
+        _falhas.pop('e:' + email.lower(), None)
+
+# ─── EXPORTAÇÃO SEGURA ────────────────────────────────────────────────────────
+# Texto digitado por usuário que começa com = + - @ vira fórmula quando a
+# planilha abre. No CSV, um apóstrofo na frente faz o Excel tratar como texto.
+
+def texto_csv(valor):
+    if isinstance(valor, str) and valor[:1] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + valor
+    return valor
+
 # ─── DECORADORES ──────────────────────────────────────────────────────────────
 
 def _eh_api():
@@ -114,13 +192,26 @@ def admin_obrigatorio(f):
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 def criar_admin_padrao():
+    """Cria o primeiro administrador quando o banco ainda não tem usuário.
+
+    E-mail e senha vêm do .env (ADMIN_EMAIL e ADMIN_SENHA). Sem senha no .env,
+    gera uma aleatória, que só aparece no console desta vez. Devolve
+    (email, senha_gerada_ou_None) quando cria e None quando já havia usuário."""
     conn = get_connection()
     total = conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
+    criado = None
     if total == 0:
+        email = (os.environ.get('ADMIN_EMAIL') or 'admin@example.com').strip().lower()
+        senha = os.environ.get('ADMIN_SENHA') or ''
+        gerada = None
+        if len(senha) < 6:
+            senha = gerada = secrets.token_urlsafe(12)
         conn.execute('INSERT INTO usuarios (nome, email, senha, nivel) VALUES (?,?,?,?)',
-                     ('Administrador', 'admin@grupozen.com.br', generate_password_hash('zen2024'), 'admin'))
+                     ('Administrador', email, generate_password_hash(senha), 'admin'))
         conn.commit()
+        criado = (email, gerada)
     conn.close()
+    return criado
 
 def status_badge(status):
     return {'OK':'ok','RENOVAR':'warn','VENCIDO':'danger','NÃO TEM':'none'}.get(status,'none')
@@ -339,15 +430,22 @@ def login():
     if request.method == 'POST':
         email = request.form.get('email','').strip()
         senha = request.form.get('senha','')
+        falta = _segundos_de_bloqueio(email)
+        if falta:
+            minutos = max(1, math.ceil(falta / 60))
+            erro = f'Muitas tentativas com senha errada. Tente de novo em {minutos} minuto{"s" if minutos != 1 else ""}.'
+            return render_template('login.html', erro=erro, email=email), 429
         conn = get_connection()
         u = conn.execute('SELECT * FROM usuarios WHERE lower(email)=? AND ativo=1', (email.lower(),)).fetchone()
         conn.close()
         if u and check_password_hash(u['senha'], senha):
+            _limpar_falhas(email)
             session.clear()
             session['usuario_id']    = u['id']
             session['usuario_nome']  = u['nome']
             session['usuario_nivel'] = u['nivel']
             return redirect(url_for('dashboard'))
+        _registrar_falha(email)
         erro = 'E-mail ou senha incorretos.'
     return render_template('login.html', erro=erro, email=email)
 
@@ -1102,10 +1200,11 @@ def exportar():
         escritor = csv.writer(texto, delimiter=';', lineterminator='\r\n')
         escritor.writerow(COLUNAS_EXPORTACAO)
         for d in docs:
-            escritor.writerow([d['empresa'], d['cnpj'] or '', d['categoria'], d['tipo'], d['protocolo'] or '',
+            t = texto_csv
+            escritor.writerow([t(d['empresa']), t(d['cnpj'] or ''), t(d['categoria']), t(d['tipo']), t(d['protocolo'] or ''),
                                formatar_data(d['vencimento']) if d['vencimento'] else '',
                                '' if d['dias'] is None else d['dias'], status_rotulo(d['status']),
-                               d['responsaveis'] or '', d['observacoes'] or ''])
+                               t(d['responsaveis'] or ''), t(d['observacoes'] or '')])
         buf = io.BytesIO(texto.getvalue().encode('utf-8-sig'))
         return send_file(buf, mimetype='text/csv', as_attachment=True, download_name=f'{base}.csv')
 
@@ -1156,6 +1255,8 @@ def exportar():
                    venc, d['dias'], status_rotulo(d['status']), d['responsaveis'] or '', d['observacoes'] or '']
         for col, valor in enumerate(valores, 1):
             cell = ws.cell(row=linha, column=col, value=valor)
+            if cell.data_type == 'f':
+                cell.data_type = 's'   # texto que começa com "=" fica texto, não fórmula
             cell.font = Font(name=fonte, size=10, color='1F1F23')
             cell.alignment = Alignment(vertical='top', wrap_text=True, indent=1)
             cell.border = borda
@@ -1193,7 +1294,7 @@ def exportar():
 
 def iniciar_agendador():
     global scheduler
-    scheduler = BackgroundScheduler(timezone='America/Bahia')
+    scheduler = BackgroundScheduler(timezone=os.environ.get('ALERTSIGNAL_FUSO') or 'America/Bahia')
     horario = get_config('horario_envio') or '08:00'
     hora, minuto = horario.split(':')
     scheduler.add_job(executar_verificacao_diaria, trigger='cron',
@@ -1220,16 +1321,23 @@ if __name__ == '__main__':
         print(f'\n AlertSignal (DEMONSTRAÇÃO) rodando em http://localhost:{porta}')
         print(f' Dados fictícios em {database.DB_PATH}. Nenhum e-mail é enviado.')
         print(f' Login: admin@alertsignal.com | Senha: {SENHA_DEMO}\n')
-        app.run(host='127.0.0.1', port=porta, debug=False)
+        app.run(host=os.environ.get('HOST') or '127.0.0.1', port=porta, debug=False)
     else:
         init_db()
         inserir_configuracoes_padrao()
-        criar_admin_padrao()
-        xlsx = os.path.join(os.path.dirname(__file__), 'ALVARAS_GRUPO_ZEN.xlsx')
-        if os.path.exists(xlsx):
+        criado = criar_admin_padrao()
+        xlsx = achar_planilha(database.PASTA)
+        if xlsx:
             importar(xlsx)
         iniciar_agendador()
         atexit.register(lambda: scheduler.shutdown(wait=False))
         print(f'\n AlertSignal rodando em http://localhost:{porta}')
-        print(' Login: admin@grupozen.com.br | Senha: zen2024\n')
-        app.run(host='0.0.0.0', port=porta, debug=False)
+        if criado and criado[1]:
+            print(f' Primeiro acesso: {criado[0]} | Senha: {criado[1]}')
+            print(' Anote a senha agora: ela não aparece de novo. Troque-a em "Meu perfil".')
+        elif criado:
+            print(f' Primeiro acesso: {criado[0]}, com a senha de ADMIN_SENHA no .env.')
+        print()
+        # 0.0.0.0 deixa os outros computadores da rede abrirem o sistema;
+        # HOST=127.0.0.1 no .env restringe a esta máquina.
+        app.run(host=os.environ.get('HOST') or '0.0.0.0', port=porta, debug=False)

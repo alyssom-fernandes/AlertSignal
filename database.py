@@ -88,8 +88,13 @@ def init_db():
         "ALTER TABLE historico ADD COLUMN criado_em TEXT DEFAULT (datetime('now','localtime'))",
     ]
     for m in migrations:
-        try: c.execute(m)
-        except: pass
+        try:
+            c.execute(m)
+        except sqlite3.OperationalError as e:
+            # "duplicate column" é o caso comum: a coluna já existe. Outro erro
+            # aparece no console em vez de sumir.
+            if 'duplicate column' not in str(e).lower():
+                print(f' Aviso: migração não aplicada ({e}): {m}')
 
     conn.commit()
     conn.close()

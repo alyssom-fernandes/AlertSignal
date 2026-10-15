@@ -16,8 +16,10 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
 os.environ['ALERTSIGNAL_DEMO'] = '1'
 
+from werkzeug.security import check_password_hash   # noqa: E402
+
 import database                      # noqa: E402
-from demo_seed import popular        # noqa: E402
+from demo_seed import popular, SENHA_DEMO   # noqa: E402
 import app as aplicacao              # noqa: E402
 
 PASTA = tempfile.mkdtemp(prefix='alertsignal-testes-')
@@ -192,6 +194,107 @@ class TestExportacao(Base):
         self.assertEqual(linhas[0][0], 'Empresa')
         self.assertTrue(all(len(l) == len(linhas[0]) for l in linhas))
         self.assertTrue(all(l[0] == "Cantina D'Ítalia" for l in linhas[1:]))
+
+
+class TestSeguranca(Base):
+    """Senha inicial, limite de tentativas, cabeçalhos e exportação sem fórmula."""
+
+    def setUp(self):
+        aplicacao._falhas.clear()
+        super().setUp()
+
+    def tearDown(self):
+        aplicacao._falhas.clear()
+        for chave in ('ADMIN_EMAIL', 'ADMIN_SENHA'):
+            os.environ.pop(chave, None)
+
+    def entrar(self, cliente, email, senha):
+        tok = token(cliente.get('/login').get_data(as_text=True))
+        return cliente.post('/login', data={'email': email, 'senha': senha, '_csrf': tok})
+
+    def test_cabecalhos_de_seguranca(self):
+        r = self.c.get('/dashboard')
+        self.assertIn("default-src 'self'", r.headers['Content-Security-Policy'])
+        self.assertIn("frame-ancestors 'none'", r.headers['Content-Security-Policy'])
+        self.assertEqual(r.headers['X-Content-Type-Options'], 'nosniff')
+        self.assertEqual(r.headers['X-Frame-Options'], 'DENY')
+        self.assertEqual(r.headers['Referrer-Policy'], 'same-origin')
+
+    def test_pagina_nao_carrega_nada_de_fora(self):
+        html = self.c.get('/dashboard').get_data(as_text=True)
+        self.assertNotIn('fonts.googleapis.com', html)
+        self.assertNotIn('cdn.jsdelivr.net', html)
+
+    def test_login_bloqueia_depois_de_cinco_erros(self):
+        c2 = aplicacao.app.test_client()
+        for i in range(aplicacao.MAX_FALHAS_EMAIL):
+            self.assertEqual(self.entrar(c2, 'admin@alertsignal.com', f'errada{i}').status_code, 200)
+        r = self.entrar(c2, 'admin@alertsignal.com', SENHA_DEMO)     # nem a senha certa entra
+        self.assertEqual(r.status_code, 429)
+        self.assertIn('Muitas tentativas', r.get_data(as_text=True))
+        # o bloqueio é do e-mail: outra conta do mesmo computador entra
+        self.assertEqual(self.entrar(c2, 'visualizador@alertsignal.com', SENHA_DEMO).status_code, 302)
+
+    def test_acerto_zera_a_contagem(self):
+        c2 = aplicacao.app.test_client()
+        for rodada in range(2):
+            for i in range(aplicacao.MAX_FALHAS_EMAIL - 1):
+                self.entrar(c2, 'admin@alertsignal.com', 'errada')
+            self.assertEqual(self.entrar(c2, 'admin@alertsignal.com', SENHA_DEMO).status_code, 302, rodada)
+
+    def test_admin_inicial_tem_senha_aleatoria(self):
+        original = database.DB_PATH
+        vazio = os.path.join(PASTA, 'vazio.db')
+        if os.path.exists(vazio):
+            os.remove(vazio)
+        database.usar_banco(vazio)
+        try:
+            database.init_db()
+            email, gerada = aplicacao.criar_admin_padrao()
+            self.assertEqual(email, 'admin@example.com')
+            self.assertGreaterEqual(len(gerada), 12)
+            conn = database.get_connection()
+            senha = conn.execute('SELECT senha FROM usuarios').fetchone()[0]
+            conn.close()
+            self.assertTrue(check_password_hash(senha, gerada))
+            self.assertIsNone(aplicacao.criar_admin_padrao())     # com usuário, não cria outro
+        finally:
+            database.usar_banco(original)
+
+    def test_admin_inicial_vem_do_env(self):
+        original = database.DB_PATH
+        vazio = os.path.join(PASTA, 'vazio-env.db')
+        if os.path.exists(vazio):
+            os.remove(vazio)
+        database.usar_banco(vazio)
+        os.environ['ADMIN_EMAIL'] = 'Chefe@Empresa.com'
+        os.environ['ADMIN_SENHA'] = 'uma-senha-longa'
+        try:
+            database.init_db()
+            self.assertEqual(aplicacao.criar_admin_padrao(), ('chefe@empresa.com', None))
+        finally:
+            database.usar_banco(original)
+
+    def test_exportacao_nao_vira_formula(self):
+        from openpyxl import load_workbook
+        conn = database.get_connection()
+        conn.execute('UPDATE documentos SET observacoes=?, protocolo=? WHERE id=1',
+                     ('=HYPERLINK("http://exemplo.invalid","clique")', '+55 71'))
+        conn.commit()
+        conn.close()
+        ws = load_workbook(io.BytesIO(self.c.get('/exportar?fmt=xlsx').data)).active
+        tipos = {c.data_type for linha in ws.iter_rows(min_row=6) for c in linha}
+        self.assertNotIn('f', tipos)
+        textos = [c.value for linha in ws.iter_rows(min_row=6) for c in linha if isinstance(c.value, str)]
+        self.assertIn('=HYPERLINK("http://exemplo.invalid","clique")', textos)
+
+        texto = self.c.get('/exportar?fmt=csv').data.decode('utf-8-sig')
+        linhas = list(csv.reader(io.StringIO(texto), delimiter=';'))
+        celulas = [c for l in linhas for c in l]
+        self.assertIn('\'=HYPERLINK("http://exemplo.invalid","clique")', celulas)
+        self.assertIn("'+55 71", celulas)
+        # os dias negativos (documentos vencidos) continuam números
+        self.assertTrue(any(re.fullmatch(r'-\d+', l[6]) for l in linhas[1:]))
 
 
 class TestVisualizador(Base):

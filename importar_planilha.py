@@ -8,10 +8,27 @@ Este script é executado UMA VEZ (na primeira rodada do sistema).
 Se o banco já tiver dados, ele pula a importação automaticamente.
 """
 
-import pandas as pd
+import os
 import re
+import sys
 from datetime import datetime
+
+import pandas as pd
+
 from database import get_connection, init_db
+
+# Nomes procurados na pasta do projeto. O segundo é o das instalações antigas,
+# aceito para não quebrar a reimportação delas.
+PLANILHAS_IMPORTACAO = ('planilha.xlsx', 'ALVARAS_GRUPO_ZEN.xlsx')
+
+
+def achar_planilha(pasta):
+    """Caminho da primeira planilha de importação que existir na pasta, ou None."""
+    for nome in PLANILHAS_IMPORTACAO:
+        caminho = os.path.join(pasta, nome)
+        if os.path.exists(caminho):
+            return caminho
+    return None
 
 # Mapeamento: nome da aba no Excel → nome da categoria no sistema
 ABAS = {
@@ -158,8 +175,9 @@ def importar(caminho_xlsx):
 
 
 if __name__ == '__main__':
-    # Permite rodar direto: python importar_planilha.py
-    import os
+    # Permite rodar direto: python importar_planilha.py [caminho.xlsx]
+    xlsx = sys.argv[1] if len(sys.argv) > 1 else achar_planilha(os.path.dirname(os.path.abspath(__file__)))
+    if not xlsx or not os.path.exists(xlsx):
+        sys.exit('Planilha não encontrada. Use: python importar_planilha.py caminho/da/planilha.xlsx')
     init_db()
-    xlsx = os.path.join(os.path.dirname(__file__), 'ALVARAS_GRUPO_ZEN.xlsx')
     importar(xlsx)
