@@ -8,7 +8,7 @@ Ele substituiu uma planilha mantida à mão: roda numa máquina da empresa, sem
 nuvem, e guarda tudo num único arquivo SQLite.
 
 [![Testes](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml)
-![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-embutido-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![Tema](https://img.shields.io/badge/tema-claro_e_escuro-e03030?style=flat-square)
@@ -23,7 +23,7 @@ Este README também está em [inglês](README.md).
    pip install -r requirements.txt
    python app.py --demo
    ```
-   No Windows, basta dar duplo clique em `DEMONSTRACAO.bat`.
+   No Windows, basta dar duplo clique em `DEMONSTRACAO.bat`: ele abre o navegador sozinho, na porta 5001.
 2. Abra `http://localhost:5000` e clique em **Entrar como administrador**.
 3. Na visão geral, abra um documento em **Atenção urgente**, renove e veja a
    linha mudar de lugar e o histórico registrar quem fez.
@@ -32,7 +32,7 @@ Este README também está em [inglês](README.md).
 
 ## Telas
 
-Capturadas do modo demonstração.
+Capturadas do modo demonstração. A faixa azul no alto de cada tela avisa que os dados são fictícios.
 
 | Visão geral, tema escuro | Página da empresa, tema claro |
 |---|---|
@@ -59,6 +59,7 @@ Capturadas do modo demonstração.
 - **Gráfico dos vencimentos dos próximos 12 meses**, com dica ao passar o mouse e versão em tabela.
 - **Dois níveis de acesso.** Administradores alteram; visualizadores só consultam, e o servidor também bloqueia.
 - **Tema escuro e claro**, que segue o sistema na primeira visita, e layout para celular.
+- **Funciona sem internet.** Fontes e ícones são servidos pelo próprio sistema, sem carregar nada de terceiros.
 - **Modo demonstração** com dados fictícios, num banco separado.
 
 ---
@@ -67,7 +68,7 @@ Capturadas do modo demonstração.
 
 ### Requisitos
 
-- Python 3.8 ou superior
+- Python 3.11 ou superior (os testes rodam no 3.11 e no 3.13)
 
 ### Demonstração (dados fictícios)
 
@@ -76,18 +77,17 @@ pip install -r requirements.txt
 python app.py --demo
 ```
 
-Abra `http://localhost:5000` e use os botões **Entrar como administrador** ou **Entrar como visualizador**. A demonstração grava num `demo.db` separado, recriado a cada início, e não envia nenhum e-mail. No Windows, dá para usar o `DEMONSTRACAO.bat`.
+Abra `http://localhost:5000` e use os botões **Entrar como administrador** ou **Entrar como visualizador**. A demonstração grava num `demo.db` separado, recriado a cada início, e não envia nenhum e-mail. No Windows, o `DEMONSTRACAO.bat` faz o mesmo na porta 5001, para rodar ao lado de uma instalação real na 5000, e abre o navegador sozinho.
 
 ### Uso real
 
-1. Crie um arquivo `.env` na raiz do projeto:
-   ```
-   SECRET_KEY=uma-chave-longa-e-aleatoria
-   ```
+1. Copie o `.env.example` para `.env` e defina uma `SECRET_KEY` longa e aleatória. Se quiser, defina também `ADMIN_EMAIL` e `ADMIN_SENHA` para o primeiro administrador.
 2. Rode `python app.py` (ou dê duplo clique em `INICIAR.bat` no Windows).
-3. Entre com `admin@grupozen.com.br` e a senha `zen2024` e troque a senha em **Meu perfil**.
+3. Na primeira execução, o console mostra o e-mail do administrador e, se `ADMIN_SENHA` não estiver definida, uma senha aleatória que só aparece dessa vez. Entre e troque a senha em **Meu perfil**.
 
-Os dados ficam em `zen.db`, que não vai para o git. Se houver uma planilha `ALVARAS_GRUPO_ZEN.xlsx` na pasta, ela é importada na primeira execução.
+Os dados ficam em `zen.db`, que não vai para o git. Se houver uma planilha `planilha.xlsx` na pasta, ela é importada na primeira execução.
+
+O servidor atende em todas as interfaces de rede, para os outros computadores da empresa abrirem o sistema. Com `HOST=127.0.0.1` no `.env`, ele fica restrito a esta máquina.
 
 > **Atualizando uma instalação feita a partir de um clone antigo:** versões anteriores guardavam o `zen.db` no repositório. Antes do `git pull`, faça uma cópia do `zen.db` e, se o git recusar a atualização por causa dele, restaure a cópia depois do pull. Nunca use `git reset --hard` ou `git checkout -- zen.db` nessa máquina sem a cópia.
 
@@ -97,7 +97,7 @@ Os dados ficam em `zen.db`, que não vai para o git. Se houver uma planilha `ALV
 python -m unittest discover -s tests -v
 ```
 
-Os mesmos testes rodam no GitHub Actions a cada envio. Eles usam o modo demonstração, num banco temporário, e cobrem as páginas, as permissões do visualizador, a proteção contra CSRF, as exportações e o e-mail de alerta.
+Os mesmos testes rodam no GitHub Actions a cada envio. Eles usam o modo demonstração, num banco temporário, e cobrem as páginas, as permissões do visualizador, a proteção contra CSRF, o bloqueio de entrada, os cabeçalhos de segurança, as exportações (inclusive contra fórmulas injetadas na planilha) e o e-mail de alerta.
 
 ---
 
@@ -122,7 +122,7 @@ O AlertSignal envia pelo Gmail com uma senha de app.
 | Agendador | APScheduler |
 | E-mail | smtplib + Gmail (SSL) |
 | Interface | Jinja2, CSS e JavaScript sem framework |
-| Fontes e ícones | Plus Jakarta Sans, JetBrains Mono e Tabler Icons |
+| Fontes e ícones | Plus Jakarta Sans, JetBrains Mono e Tabler Icons, servidos pelo próprio sistema |
 | Planilhas | openpyxl (exportação) e pandas (importação) |
 
 ---
@@ -138,6 +138,8 @@ O AlertSignal envia pelo Gmail com uma senha de app.
 **JavaScript sem framework.** Modais com `<dialog>`, edição na linha, filtros e avisos cabem em poucas funções. O gráfico é feito com HTML e CSS e continua legível no celular.
 
 **Proteção contra CSRF sem dependência.** Um token por sessão vai em todo formulário e em todo `fetch` que altera dados.
+
+**Segurança sem pacotes extras.** Cinco senhas erradas para o mesmo e-mail bloqueiam a entrada por 15 minutos, toda resposta leva cabeçalhos de segurança (CSP, X-Frame-Options, nosniff, Referrer-Policy) e o texto exportado que começa com `=`, `+`, `-` ou `@` continua texto no Excel, em vez de virar fórmula.
 
 ---
 
@@ -155,10 +157,12 @@ alertsignal/
 ├── docs/telas/             # Imagens deste README e da prévia de link
 ├── INICIAR.bat             # Inicia o sistema no Windows
 ├── DEMONSTRACAO.bat        # Inicia a demonstração no Windows
+├── .env.example            # Configurações do uso real (copie para .env)
 ├── static/
 │   ├── css/app.css         # Estilos, temas, celular e impressão
 │   ├── js/app.js           # Modais, confirmações, abas, tema e menu
-│   └── img/                # Logos (versões para tema escuro e claro)
+│   ├── img/                # Imagem da prévia de link
+│   └── vendor/             # Fontes e ícones servidos localmente, com as licenças
 └── templates/              # Páginas Jinja (layout, telas, relatório e erros)
 ```
 
@@ -182,7 +186,8 @@ configuracoes         e-mail, horário e prazos dos alertas
 ## Limitações conhecidas
 
 - A senha de app do Gmail fica em texto no banco. Para uso fora da rede da empresa, o caminho seria cifrar com `cryptography.fernet`.
-- O servidor embutido do Flask atende bem a rede local; para acesso pela internet, o certo é colocar atrás de um servidor como Waitress ou Gunicorn, com HTTPS.
+- O servidor embutido do Flask atende bem a rede local; para acesso pela internet, o certo é colocar atrás de um servidor como Waitress ou Gunicorn, com HTTPS, e definir `ALERTSIGNAL_HTTPS=1` para o cookie de sessão só trafegar por HTTPS.
+- A contagem do bloqueio de entrada fica na memória: reiniciar o servidor a zera.
 
 ---
 

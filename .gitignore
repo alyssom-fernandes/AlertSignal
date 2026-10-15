@@ -10,4 +10,6 @@ __pycache__/
 .venv/
 venv/
 *.xlsx
-.claude
+.idea/
+.vscode/
+.DS_Store

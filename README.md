@@ -9,7 +9,7 @@ inside the company, with no cloud, and keeps everything in a single SQLite
 file. The interface is in Brazilian Portuguese.
 
 [![Tests](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml)
-![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-embedded-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![Theme](https://img.shields.io/badge/theme-light_and_dark-e03030?style=flat-square)
@@ -24,7 +24,7 @@ This README is also available in [Portuguese](README.pt-br.md).
    pip install -r requirements.txt
    python app.py --demo
    ```
-   On Windows, just double-click `DEMONSTRACAO.bat`.
+   On Windows, just double-click `DEMONSTRACAO.bat`: it opens the browser by itself, on port 5001.
 2. Open `http://localhost:5000` and click **Entrar como administrador** (sign in as admin).
 3. On the overview, open a document under **Atenção urgente**, renew it, and
    watch the row move and the history record who did it.
@@ -33,7 +33,7 @@ This README is also available in [Portuguese](README.pt-br.md).
 
 ## Screens
 
-Captured from demo mode.
+Captured from demo mode. The blue bar at the top of each screen says the data is fictitious.
 
 | Overview, dark theme | Company page, light theme |
 |---|---|
@@ -60,6 +60,7 @@ Captured from demo mode.
 - **Chart of expirations over the next 12 months**, with hover details and a table view.
 - **Two access levels.** Admins can change data; viewers can only look, enforced on the server too.
 - **Dark and light themes**, following the system on the first visit, and a phone layout.
+- **Works without internet.** Fonts and icons are served by the app itself, so nothing is loaded from third parties.
 - **Demo mode** with fictitious data in a separate database.
 
 ---
@@ -68,7 +69,7 @@ Captured from demo mode.
 
 ### Requirements
 
-- Python 3.8 or later
+- Python 3.11 or later (the tests run on 3.11 and 3.13)
 
 ### Demo (fictitious data)
 
@@ -77,18 +78,17 @@ pip install -r requirements.txt
 python app.py --demo
 ```
 
-Open `http://localhost:5000` and use **Entrar como administrador** (admin) or **Entrar como visualizador** (viewer). The demo writes to a separate `demo.db`, rebuilt on every start, and never sends email. On Windows, `DEMONSTRACAO.bat` does the same.
+Open `http://localhost:5000` and use **Entrar como administrador** (admin) or **Entrar como visualizador** (viewer). The demo writes to a separate `demo.db`, rebuilt on every start, and never sends email. On Windows, `DEMONSTRACAO.bat` does the same on port 5001, so it can run next to a real install on 5000, and opens the browser by itself.
 
 ### Real use
 
-1. Create a `.env` file in the project root:
-   ```
-   SECRET_KEY=a-long-random-key
-   ```
+1. Copy `.env.example` to `.env` and set a long random `SECRET_KEY`. Optionally, set `ADMIN_EMAIL` and `ADMIN_SENHA` for the first administrator.
 2. Run `python app.py` (or double-click `INICIAR.bat` on Windows).
-3. Sign in with `admin@grupozen.com.br` and password `zen2024`, then change the password under **Meu perfil**.
+3. On the first run, the console shows the administrator's email and, unless `ADMIN_SENHA` is set, a random password that is shown only once. Sign in and change it under **Meu perfil**.
 
-Data lives in `zen.db`, which is not committed. If an `ALVARAS_GRUPO_ZEN.xlsx` spreadsheet is in the folder, it is imported on the first run.
+Data lives in `zen.db`, which is not committed. If a `planilha.xlsx` spreadsheet is in the folder, it is imported on the first run.
+
+The server listens on every network interface, so other computers on the company network can open it. Set `HOST=127.0.0.1` in `.env` to keep it on this machine only.
 
 > **Upgrading an install that runs from an old clone:** earlier versions kept `zen.db` in the repository. Back up `zen.db` before `git pull`, and if git refuses to update because of it, restore the backup after the pull. Never run `git reset --hard` or `git checkout -- zen.db` on that machine without the backup.
 
@@ -98,7 +98,7 @@ Data lives in `zen.db`, which is not committed. If an `ALVARAS_GRUPO_ZEN.xlsx` s
 python -m unittest discover -s tests -v
 ```
 
-The same tests run on GitHub Actions on every push. They use demo mode on a temporary database and cover the pages, viewer permissions, CSRF protection, exports and the alert email.
+The same tests run on GitHub Actions on every push. They use demo mode on a temporary database and cover the pages, viewer permissions, CSRF protection, the sign-in lockout, security headers, exports (including spreadsheet formula injection) and the alert email.
 
 ---
 
@@ -123,7 +123,7 @@ AlertSignal sends through Gmail with an App Password.
 | Scheduler | APScheduler |
 | Email | smtplib + Gmail (SSL) |
 | Interface | Jinja2, CSS and plain JavaScript |
-| Fonts and icons | Plus Jakarta Sans, JetBrains Mono and Tabler Icons |
+| Fonts and icons | Plus Jakarta Sans, JetBrains Mono and Tabler Icons, served by the app |
 | Spreadsheets | openpyxl (export) and pandas (import) |
 
 ---
@@ -139,6 +139,8 @@ AlertSignal sends through Gmail with an App Password.
 **No front-end framework.** Modals use `<dialog>`; inline editing, filters and notices fit in a few functions. The chart is built with HTML and CSS and stays readable on a phone.
 
 **CSRF protection without a dependency.** A per-session token goes into every form and every data-changing `fetch`.
+
+**Security without extra packages.** Five wrong passwords for the same email lock sign-in for 15 minutes, every response carries security headers (CSP, X-Frame-Options, nosniff, Referrer-Policy), and exported text that starts with `=`, `+`, `-` or `@` stays text in Excel instead of becoming a formula.
 
 ---
 
@@ -156,10 +158,12 @@ alertsignal/
 ├── docs/telas/             # Images for this README and the link preview
 ├── INICIAR.bat             # Starts the app on Windows
 ├── DEMONSTRACAO.bat        # Starts the demo on Windows
+├── .env.example            # Settings for real use (copy to .env)
 ├── static/
 │   ├── css/app.css         # Styles, themes, phone layout and print
 │   ├── js/app.js           # Modals, confirmations, tabs, theme and menu
-│   └── img/                # Logos (dark and light theme versions)
+│   ├── img/                # Link preview image
+│   └── vendor/             # Fonts and icons served locally, with their licenses
 └── templates/              # Jinja pages (layout, screens, report and errors)
 ```
 
@@ -183,7 +187,8 @@ configuracoes         email, send time and alert thresholds
 ## Known limitations
 
 - The Gmail App Password is stored as plain text in the database. For use outside the company network, it should be encrypted with `cryptography.fernet`.
-- Flask's built-in server is fine on a local network; for internet access, put the app behind a server such as Waitress or Gunicorn, with HTTPS.
+- Flask's built-in server is fine on a local network; for internet access, put the app behind a server such as Waitress or Gunicorn, with HTTPS, and set `ALERTSIGNAL_HTTPS=1` so the session cookie only travels over HTTPS.
+- The sign-in lockout counter lives in memory: restarting the server clears it.
 
 ---
 
