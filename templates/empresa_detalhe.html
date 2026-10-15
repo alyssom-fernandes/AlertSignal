@@ -85,14 +85,13 @@
       <td class="acoes">
         <span class="grupo-acoes">
           {% if urgente %}
-          <button type="button" class="btn btn-icone btn-warn" data-acao="renovar" aria-label="Renovar {{ doc.tipo }}" title="Renovar"><i class="ti ti-refresh" aria-hidden="true"></i></button>
-          <button type="button" class="btn btn-icone" data-acao="reenviar" aria-label="Reenviar alerta de {{ doc.tipo }}" title="Reenviar alerta"><i class="ti ti-mail-forward" aria-hidden="true"></i></button>
-          {% else %}
-          <span class="btn btn-icone vago" aria-hidden="true"></span><span class="btn btn-icone vago" aria-hidden="true"></span>
+          <button type="button" class="btn btn-sm btn-renovar {{ 'r-danger' if doc.status == 'VENCIDO' else 'r-warn' }}" data-acao="renovar" aria-label="Renovar {{ doc.tipo }}"><i class="ti ti-refresh" aria-hidden="true"></i> Renovar</button>
+          <button type="button" class="btn btn-icone btn-quieto" data-acao="reenviar" aria-label="Reenviar alerta de {{ doc.tipo }}" title="Reenviar alerta"><i class="ti ti-mail-forward" aria-hidden="true"></i></button>
           {% endif %}
-          <button type="button" class="btn btn-icone" data-acao="responsavel" aria-label="Adicionar responsável a {{ doc.tipo }}" title="Adicionar responsável"><i class="ti ti-user-plus" aria-hidden="true"></i></button>
-          <button type="button" class="btn btn-icone" data-acao="editar" aria-label="Editar {{ doc.tipo }}" title="Editar"><i class="ti ti-edit" aria-hidden="true"></i></button>
-          <button type="button" class="btn btn-icone btn-danger" data-acao="excluir" aria-label="Excluir {{ doc.tipo }}" title="Excluir"><i class="ti ti-trash" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-icone btn-quieto" data-acao="responsavel" aria-label="Adicionar responsável a {{ doc.tipo }}" title="Adicionar responsável"><i class="ti ti-user-plus" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-icone btn-quieto" data-acao="editar" aria-label="Editar {{ doc.tipo }}" title="Editar"><i class="ti ti-edit" aria-hidden="true"></i></button>
+          <span class="sep-acoes" aria-hidden="true"></span>
+          <button type="button" class="btn btn-icone btn-quieto btn-excluir" data-acao="excluir" aria-label="Excluir {{ doc.tipo }}" title="Excluir"><i class="ti ti-trash" aria-hidden="true"></i></button>
         </span>
       </td>
       {% endif %}

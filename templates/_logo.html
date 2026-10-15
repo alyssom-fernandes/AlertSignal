@@ -1,0 +1,8 @@
+{# Logo do AlertSignal: o mostrador de prazo e o nome escrito por inteiro.
+   Em HTML (não imagem) para seguir o tema e ficar nítido em qualquer tamanho. #}
+{% macro simbolo() -%}
+<svg class="logo-simbolo" viewBox="0 0 32 32" aria-hidden="true" focusable="false" fill="none" stroke-linecap="round"><g class="s-marca" stroke-width="2.6"><line x1="14.13" y1="25.42" x2="13.27" y2="29.73"/><line x1="10.67" y1="23.98" x2="8.22" y2="27.64"/><line x1="8.02" y1="21.33" x2="4.36" y2="23.78"/><line x1="6.58" y1="17.87" x2="2.27" y2="18.73"/><line x1="6.58" y1="14.13" x2="2.27" y2="13.27"/><line x1="8.02" y1="10.67" x2="4.36" y2="8.22"/><line x1="10.67" y1="8.02" x2="8.22" y2="4.36"/><line x1="14.13" y1="6.58" x2="13.27" y2="2.27"/></g><g stroke="currentColor" stroke-width="2.6" opacity=".88"><line x1="17.87" y1="6.58" x2="18.73" y2="2.27"/><line x1="21.33" y1="8.02" x2="23.78" y2="4.36"/><line x1="23.98" y1="10.67" x2="27.64" y2="8.22"/><line x1="25.42" y1="14.13" x2="29.73" y2="13.27"/><line x1="25.42" y1="17.87" x2="29.73" y2="18.73"/><line x1="23.98" y1="21.33" x2="27.64" y2="23.78"/><line x1="21.33" y1="23.98" x2="23.78" y2="27.64"/><line x1="17.87" y1="25.42" x2="18.73" y2="29.73"/></g><path d="M14.9 10.4V16.9H20.2" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/></svg>
+{%- endmacro %}
+{% macro logo(classe='', decorativo=False) -%}
+<span class="logo-as {{ classe }}" {% if decorativo %}aria-hidden="true"{% else %}role="img" aria-label="AlertSignal"{% endif %}>{{ simbolo() }}<span class="logo-palavra"><span class="l-alert">Alert</span>Signal</span></span>
+{%- endmacro %}

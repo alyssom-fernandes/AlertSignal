@@ -5,8 +5,7 @@
   <div class="caixa-avulsa">
 
     <h1 class="sr-only">Entrar no AlertSignal</h1>
-    <img class="logo so-escuro" src="{{ url_for('static', filename='img/logo.png') }}" alt="AlertSignal" width="184" height="46">
-    <img class="logo so-claro" src="{{ url_for('static', filename='img/logo-claro.png') }}" alt="AlertSignal" width="184" height="46">
+    {% from '_logo.html' import logo %}{{ logo() }}
     <div class="slogan">Controle de alvarás e licenças</div>
 
     {% if erro %}<div class="flash erro" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i><span>{{ erro }}</span></div>{% endif %}

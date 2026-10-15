@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_logo.html' import logo %}
 {% macro item_menu(destino, chave, icone, rotulo, ativo, badge=0) %}
   <a href="{{ url_for(destino) }}" class="nav-item {% if ativo == chave %}active{% endif %}" data-label="{{ rotulo }}"
      {% if ativo == chave %}aria-current="page"{% endif %}>
@@ -19,10 +20,7 @@
               aria-label="Recolher menu" title="Recolher menu">
         <i class="ti ti-chevron-left" aria-hidden="true"></i>
       </button>
-      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="AlertSignal" class="sb-logo-full so-escuro" width="112" height="28">
-      <img src="{{ url_for('static', filename='img/logo-claro.png') }}" alt="AlertSignal" class="sb-logo-full so-claro" width="112" height="28">
-      <img src="{{ url_for('static', filename='favicon-512.png') }}" alt="AlertSignal" class="sb-logo-icon so-escuro" width="28" height="28">
-      <img src="{{ url_for('static', filename='img/icone-claro.png') }}" alt="AlertSignal" class="sb-logo-icon so-claro" width="28" height="28">
+      {{ logo('sb-logo') }}
       <button type="button" class="icone-btn sb-fechar" onclick="fecharSidebarMobile()" aria-label="Fechar menu"><i class="ti ti-x" aria-hidden="true"></i></button>
     </div>
 
@@ -83,8 +81,7 @@
         <i class="ti ti-menu-2" aria-hidden="true"></i>
       </button>
       <a href="{{ url_for('dashboard') }}" aria-label="AlertSignal, ir para a visão geral">
-        <img class="so-escuro" src="{{ url_for('static', filename='img/logo.png') }}" alt="" width="96" height="24">
-        <img class="so-claro" src="{{ url_for('static', filename='img/logo-claro.png') }}" alt="" width="96" height="24">
+        {{ logo(decorativo=True) }}
       </a>
       {% if urgentes_count %}<a href="{{ url_for('relatorio', status='atencao') }}" class="nav-badge" aria-label="{{ urgentes_count }} documentos precisam de atenção">{{ urgentes_count }}</a>{% endif %}
     </header>

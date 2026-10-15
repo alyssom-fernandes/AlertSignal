@@ -3,8 +3,7 @@
 {% block content %}
 <main class="tela-avulsa">
   <div class="caixa-avulsa larga">
-    <img class="logo pequeno so-escuro" src="{{ url_for('static', filename='img/logo.png') }}" alt="AlertSignal" width="136" height="34">
-    <img class="logo pequeno so-claro" src="{{ url_for('static', filename='img/logo-claro.png') }}" alt="AlertSignal" width="136" height="34">
+    {% from '_logo.html' import logo %}{{ logo('pequeno') }}
     <div class="erro-codigo" aria-hidden="true">{{ codigo }}</div>
     <h1 class="erro-titulo">{{ titulo }}</h1>
     <p class="erro-texto">{{ texto }}</p>

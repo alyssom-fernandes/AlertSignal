@@ -47,10 +47,10 @@
 
 <h2 class="sr-only">Resumo de status</h2>
 <div class="tiles">
-  <a class="tile t-danger" href="{{ url_for('relatorio', status='vencidos') }}">
+  <a class="tile {{ 't-danger alarme' if stats['VENCIDO'] }}" href="{{ url_for('relatorio', status='vencidos') }}">
     <span class="tile-rotulo"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Vencidos</span>
     <span class="tile-valor">{{ stats['VENCIDO'] }}</span>
-    <span class="tile-dica">Renovar já</span>
+    <span class="tile-dica">{{ 'Renovar já' if stats['VENCIDO'] else 'Nenhum vencido' }}</span>
   </a>
   <a class="tile t-warn" href="{{ url_for('relatorio', status='renovar') }}">
     <span class="tile-rotulo"><i class="ti ti-clock-exclamation" aria-hidden="true"></i> A renovar</span>
@@ -74,7 +74,7 @@
   <h2 class="sec-head" id="grafico-titulo">Vencimentos nos próximos 12 meses</h2>
   <div class="cartao">
   <div class="grafico-cab">
-    <p class="descr">{{ total_meses }} documento{{ 's' if total_meses != 1 }} por mês de vencimento. Os já vencidos não entram aqui.</p>
+    <p class="descr">{{ total_meses }} documento{{ 's vencem' if total_meses != 1 else ' vence' }} nos próximos 12 meses. Os já vencidos não entram aqui.</p>
     {% if total_meses %}
     <div class="legenda" aria-hidden="true">
       <span><i class="s2"></i> A renovar (até {{ limite_renovar }} dias)</span>
