@@ -68,10 +68,10 @@
   <meta property="og:type"        content="website">
   <meta name="twitter:card"       content="summary_large_image">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.48.0/dist/tabler-icons.min.css" rel="stylesheet">
+  {# Fontes e ícones servidos daqui mesmo: funciona sem internet e não envia nada a terceiros #}
+  <link rel="preload" href="{{ url_for('static', filename='vendor/fontes/plus-jakarta-sans-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link href="{{ url_for('static', filename='vendor/fontes/fontes.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='vendor/tabler-icons/tabler-icons.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
   {% block head %}{% endblock %}
 </head>
