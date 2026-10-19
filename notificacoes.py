@@ -14,10 +14,11 @@ from datetime import date, datetime, timedelta
 from database import get_connection, get_config
 
 
-def calcular_dias(vencimento_str):
+def calcular_dias(vencimento_str, hoje=None):
     """
     Calcula quantos dias faltam (ou passaram) para uma data de vencimento.
     Valor positivo = ainda não venceu. Valor negativo = já venceu.
+    `hoje` permite calcular para outra data (testes e verificação diária).
     """
     if not vencimento_str:
         return None
@@ -25,7 +26,7 @@ def calcular_dias(vencimento_str):
         venc = datetime.strptime(vencimento_str, '%Y-%m-%d').date()
     except (TypeError, ValueError):
         return None
-    return (venc - date.today()).days
+    return (venc - (hoje or date.today())).days
 
 
 def recalcular_status(dias, limite_renovar=None):
@@ -41,38 +42,66 @@ def recalcular_status(dias, limite_renovar=None):
     return 'OK'
 
 
-def nivel_alerta(dias):
+def _config_inteira(chave, padrao):
+    try:
+        return int(get_config(chave) or padrao)
+    except (TypeError, ValueError):
+        return padrao
+
+
+def faixas_de_alerta():
+    """Prazos, em dias, de cada marco de aviso, como estão nas configurações."""
+    return {
+        'antecipado': _config_inteira('alerta_dias_90', 90),
+        'renovar':    _config_inteira('alerta_dias_30', 30),
+        'critico':    _config_inteira('alerta_dias_7', 7),
+    }
+
+
+def nivel_alerta(dias, faixas=None):
     """Nível do alerta pelas regras configuradas (None = fora de qualquer janela)."""
     if dias is None:
         return None
     if dias < 0:
         return 'vencido'
-    if dias <= int(get_config('alerta_dias_7') or 7):
+    faixas = faixas or faixas_de_alerta()
+    if dias <= faixas['critico']:
         return 'critico'
-    if dias <= int(get_config('alerta_dias_30') or 30):
+    if dias <= faixas['renovar']:
         return 'renovar'
-    if dias <= int(get_config('alerta_dias_90') or 90):
+    if dias <= faixas['antecipado']:
         return 'antecipado'
     return None
 
 
-def buscar_alertas():
+def buscar_alertas(hoje=None):
     """
-    Busca todos os documentos que precisam de alerta hoje.
-    Retorna uma lista de dicionários com os dados para o e-mail.
+    Avisos que devem sair hoje, agrupados por responsável.
+
+    Antes de vencer, cada documento passa por três marcos (aviso antecipado,
+    hora de renovar e vence em breve), nos prazos das configurações: 90, 30 e
+    7 dias por padrão. O aviso de cada marco sai uma única vez para cada
+    responsável, no dia em que o documento entra na faixa. Se a verificação
+    não rodou nesse dia, ou se o documento já foi cadastrado dentro da faixa,
+    o aviso sai na próxima verificação, e só o do marco mais recente. Depois
+    de vencido, o lembrete sai uma vez por dia.
+
+    A tabela alerta_enviado guarda o que já saiu, com o vencimento a que o
+    aviso se refere: rodar duas vezes no mesmo dia não repete nada, e um
+    documento renovado recebe de novo os marcos do novo prazo.
     """
+    hoje = hoje or date.today()
+    faixas = faixas_de_alerta()
     conn = get_connection()
 
-
-    # Busca documentos COM data de vencimento e com responsáveis cadastrados
-    # JOIN conecta tabelas relacionadas pela chave estrangeira
+    # Documentos com vencimento e responsável ativo, de empresas ativas
     docs = conn.execute('''
         SELECT
             d.id           AS doc_id,
             d.tipo         AS doc_tipo,
             d.vencimento,
-            d.status,
             e.nome         AS empresa,
+            r.id           AS resp_id,
             r.nome         AS responsavel_nome,
             r.email        AS responsavel_email
         FROM documentos d
@@ -82,22 +111,27 @@ def buscar_alertas():
         WHERE d.vencimento IS NOT NULL
           AND r.ativo = 1
           AND e.ativa = 1
-        ORDER BY d.vencimento
+        ORDER BY d.vencimento, d.id
     ''').fetchall()
 
+    # Marcos já avisados; dos lembretes de vencido, só interessa o de hoje
+    enviados = {
+        (a['documento_id'], a['responsavel_id'], a['marco'], a['vencimento'])
+        for a in conn.execute('''SELECT documento_id, responsavel_id, marco, vencimento
+                                 FROM alerta_enviado WHERE marco != 'vencido' OR data = ?''',
+                              (hoje.isoformat(),))
+    }
     conn.close()
 
     alertas = {}  # agrupa por responsável para mandar um e-mail único por pessoa
 
     for doc in docs:
-        dias = calcular_dias(doc['vencimento'])
-        if dias is None:
-            continue
-
-        nivel = nivel_alerta(dias)
-
+        dias = calcular_dias(doc['vencimento'], hoje)
+        nivel = nivel_alerta(dias, faixas)
         if nivel is None:
-            continue  # fora de qualquer janela de alerta
+            continue  # sem data válida ou fora de qualquer janela de alerta
+        if (doc['doc_id'], doc['resp_id'], nivel, doc['vencimento']) in enviados:
+            continue  # este marco (ou o lembrete de hoje) já foi avisado
 
         email = doc['responsavel_email']
         if email not in alertas:
@@ -108,6 +142,8 @@ def buscar_alertas():
             }
 
         alertas[email]['itens'].append({
+            'doc_id': doc['doc_id'],
+            'resp_id': doc['resp_id'],
             'empresa': doc['empresa'],
             'documento': doc['doc_tipo'],
             'vencimento': doc['vencimento'],
@@ -116,6 +152,31 @@ def buscar_alertas():
         })
 
     return list(alertas.values())
+
+
+def registrar_envios(itens, hoje=None):
+    """Marca os avisos de um e-mail enviado, para não saírem de novo."""
+    data = (hoje or date.today()).isoformat()
+    conn = get_connection()
+    conn.executemany(
+        '''INSERT OR IGNORE INTO alerta_enviado (documento_id, responsavel_id, marco, vencimento, data)
+           VALUES (?, ?, ?, ?, ?)''',
+        [(i['doc_id'], i['resp_id'], i['nivel'], i['vencimento'], data) for i in itens])
+    conn.commit()
+    conn.close()
+
+
+def limpar_envios_antigos(hoje=None):
+    """Apaga registros que não decidem mais nada: lembretes de vencido de dias
+    anteriores e marcos de um vencimento que o documento não tem mais."""
+    data = (hoje or date.today()).isoformat()
+    conn = get_connection()
+    conn.execute('''DELETE FROM alerta_enviado
+                    WHERE (marco = 'vencido' AND data < ?)
+                       OR vencimento IS NOT (SELECT d.vencimento FROM documentos d
+                                             WHERE d.id = alerta_enviado.documento_id)''', (data,))
+    conn.commit()
+    conn.close()
 
 
 NIVEIS_EMAIL = [
@@ -307,27 +368,31 @@ def registrar_historico(descricao, empresa_id=None, documento_id=None, tipo='ema
     conn.close()
 
 
-def executar_verificacao_diaria():
+def executar_verificacao_diaria(hoje=None):
     """
     Função principal chamada todo dia pelo agendador.
-    Verifica alertas e dispara os e-mails.
+    Verifica alertas e dispara os e-mails. Um aviso só fica registrado como
+    enviado quando o e-mail sai; se o envio falhar, ele volta no dia seguinte.
     """
+    hoje = hoje or date.today()
     print(f"[{datetime.now().strftime('%H:%M')}] Verificando vencimentos...")
 
-    alertas = buscar_alertas()
+    limpar_envios_antigos(hoje)
+    alertas = buscar_alertas(hoje)
     if not alertas:
         print("Nenhum alerta para enviar hoje.")
         return
 
+    url = get_config('url_sistema')
     for destinatario in alertas:
         qtd = len(destinatario['itens'])
         assunto = f"AlertSignal: {qtd} documento{'s' if qtd > 1 else ''} precisa{'m' if qtd > 1 else ''} de atenção"
-        url = get_config('url_sistema')
         corpo = montar_html(destinatario['nome'], destinatario['itens'], url)
         texto = montar_texto(destinatario['nome'], destinatario['itens'], url)
 
         ok = enviar_email(destinatario['email'], destinatario['nome'], assunto, corpo, texto)
 
         if ok:
-            desc = f"Alerta enviado para {destinatario['nome']} ({qtd}\u00a0documento{'s' if qtd > 1 else ''})"
+            registrar_envios(destinatario['itens'], hoje)
+            desc = f"Alerta enviado para {destinatario['nome']} ({qtd} documento{'s' if qtd > 1 else ''})"
             registrar_historico(desc)

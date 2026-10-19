@@ -1180,6 +1180,7 @@ def excluir_documento(doc_id):
     if not doc:
         conn.close(); return jsonify({'ok': False, 'erro': 'Documento não encontrado.'}), 404
     conn.execute('DELETE FROM documento_responsavel WHERE documento_id=?', (doc_id,))
+    conn.execute('DELETE FROM alerta_enviado WHERE documento_id=?', (doc_id,))
     conn.execute('UPDATE historico SET documento_id=NULL WHERE documento_id=?', (doc_id,))
     conn.execute('DELETE FROM documentos WHERE id=?', (doc_id,))
     registrar_historico(conn, f'Documento "{doc["tipo"]}" excluído: {doc["empresa"]}', empresa_id=doc['empresa_id'])

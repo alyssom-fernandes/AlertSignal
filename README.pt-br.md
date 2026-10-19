@@ -50,7 +50,7 @@ Capturadas do modo demonstração. A faixa azul no alto de cada tela avisa que o
 
 ## Funcionalidades
 
-- **Alertas automáticos por e-mail.** Verificação diária num horário configurável, com avisos 90, 30 e 7 dias antes do vencimento e lembretes diários para o que já venceu. O e-mail agrupa os documentos por urgência e tem versão em texto simples.
+- **Alertas automáticos por e-mail.** Uma verificação roda todo dia num horário configurável. Cada documento recebe um aviso quando faltam 90, 30 e 7 dias para o vencimento (os três prazos são configuráveis) e um lembrete por dia depois que vence. Cada aviso sai uma vez para cada responsável: rodar duas vezes no mesmo dia não repete nada; um documento cadastrado já dentro de uma faixa, ou um marco que passou num dia sem verificação, recebe o aviso mais recente na verificação seguinte; e um documento renovado recomeça com a nova data. Se o e-mail de um aviso falhar, ele volta no dia seguinte. O e-mail agrupa os documentos por urgência e tem versão em texto simples.
 - **Várias empresas e categorias.** Cada empresa tem os próprios documentos, e as categorias organizam por ramo (postos, restaurantes, hotéis...).
 - **Mais de um responsável por documento**, para nenhum alerta depender de uma pessoa só.
 - **Renovação, edição e protocolo na própria tela da empresa**, com o histórico registrando quem fez o quê.
@@ -97,7 +97,7 @@ O servidor atende em todas as interfaces de rede, para os outros computadores da
 python -m unittest discover -s tests -v
 ```
 
-Os mesmos testes rodam no GitHub Actions a cada envio. Eles usam o modo demonstração, num banco temporário, e cobrem as páginas, as permissões do visualizador, a proteção contra CSRF, o bloqueio de entrada, os cabeçalhos de segurança, as exportações (inclusive contra fórmulas injetadas na planilha) e o e-mail de alerta.
+Os mesmos testes rodam no GitHub Actions a cada envio. Eles usam o modo demonstração, num banco temporário, e cobrem as páginas, as permissões do visualizador, a proteção contra CSRF, o bloqueio de entrada, os cabeçalhos de segurança, a queda da sessão de quem é excluído, desativado ou tem a senha redefinida, as exportações (inclusive contra fórmulas injetadas na planilha), o e-mail de alerta, as regras dos alertas numa data fixa (cada marco, a não repetição, o lembrete diário depois de vencido e os prazos configuráveis) e o agendador.
 
 ---
 
@@ -133,13 +133,13 @@ O AlertSignal envia pelo Gmail com uma senha de app.
 
 **APScheduler em vez de cron.** Roda dentro do processo do Flask, funciona no Windows e deixa o horário do envio ser trocado pela própria tela.
 
-**SQL direto, sem ORM.** Consultas parametrizadas, explícitas e curtas. Com oito tabelas, um ORM só acrescentaria camadas.
+**SQL direto, sem ORM.** Consultas parametrizadas, explícitas e curtas. Com nove tabelas, um ORM só acrescentaria camadas.
 
 **JavaScript sem framework.** Modais com `<dialog>`, edição na linha, filtros e avisos cabem em poucas funções. O gráfico é feito com HTML e CSS e continua legível no celular.
 
 **Proteção contra CSRF sem dependência.** Um token por sessão vai em todo formulário e em todo `fetch` que altera dados.
 
-**Segurança sem pacotes extras.** Cinco senhas erradas para o mesmo e-mail bloqueiam a entrada por 15 minutos, toda resposta leva cabeçalhos de segurança (CSP, X-Frame-Options, nosniff, Referrer-Policy) e o texto exportado que começa com `=`, `+`, `-` ou `@` continua texto no Excel, em vez de virar fórmula.
+**Segurança sem pacotes extras.** A cada pedido, o usuário conectado é relido do banco: quem é excluído, desativado ou tem a senha redefinida sai no pedido seguinte. Cinco senhas erradas para o mesmo e-mail bloqueiam a entrada por 15 minutos, toda resposta leva cabeçalhos de segurança (CSP, X-Frame-Options, nosniff, Referrer-Policy) e o texto exportado que começa com `=`, `+`, `-` ou `@` continua texto no Excel, em vez de virar fórmula.
 
 ---
 
@@ -152,7 +152,7 @@ alertsignal/
 ├── notificacoes.py         # Regras dos alertas e envio de e-mail
 ├── demo_seed.py            # Dados fictícios do modo demonstração
 ├── importar_planilha.py    # Importação da planilha antiga (uma vez)
-├── tests/test_rotas.py     # Testes (unittest)
+├── tests/                  # Testes (unittest): rotas e segurança, regras dos alertas e agendador
 ├── .github/workflows/      # Testes no GitHub Actions a cada envio
 ├── docs/telas/             # Imagens deste README e da prévia de link
 ├── INICIAR.bat             # Inicia o sistema no Windows
@@ -178,6 +178,7 @@ documentos            documentos de cada empresa (tipo, protocolo, vencimento, s
 responsaveis          pessoas que recebem os alertas
 documento_responsavel quem responde por cada documento
 historico             alertas enviados e alterações, com data e autor
+alerta_enviado        avisos já enviados (documento, responsável, marco, vencimento, dia)
 configuracoes         e-mail, horário e prazos dos alertas
 ```
 

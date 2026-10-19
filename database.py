@@ -77,6 +77,20 @@ def init_db():
         criado_em    TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
+    # Um registro por aviso enviado: documento, responsável, marco (antecipado,
+    # renovar, critico ou vencido), o vencimento a que o aviso se refere e o dia
+    # do envio. Com o vencimento na chave, um documento renovado volta a
+    # receber os marcos do novo prazo.
+    c.execute('''CREATE TABLE IF NOT EXISTS alerta_enviado (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        documento_id   INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+        responsavel_id INTEGER NOT NULL REFERENCES responsaveis(id) ON DELETE CASCADE,
+        marco          TEXT NOT NULL,
+        vencimento     TEXT NOT NULL,
+        data           TEXT NOT NULL,
+        UNIQUE (documento_id, responsavel_id, marco, vencimento, data)
+    )''')
+
     c.execute('''CREATE TABLE IF NOT EXISTS configuracoes (
         chave TEXT PRIMARY KEY,
         valor TEXT
