@@ -17,7 +17,7 @@
     <div class="campo cresce"><label class="lbl" for="usu-nome">Nome</label><input class="form-input" id="usu-nome" type="text" name="nome" autocomplete="off" required maxlength="120"></div>
     <div class="campo cresce"><label class="lbl" for="usu-email">E-mail</label><input class="form-input" id="usu-email" type="email" name="email" autocomplete="off" required maxlength="160"></div>
     <div class="campo"><label class="lbl" for="usu-senha">Senha inicial</label>
-      <div class="campo-senha w-md"><input class="form-input" id="usu-senha" type="password" name="senha" placeholder="Mínimo 6 caracteres" minlength="6" autocomplete="new-password" required>
+      <div class="campo-senha w-md"><input class="form-input" id="usu-senha" type="password" name="senha" placeholder="Mínimo {{ senha_minima }} caracteres" minlength="{{ senha_minima }}" autocomplete="new-password" required>
         <button type="button" data-ver-senha="usu-senha" aria-label="Mostrar senha" aria-pressed="false"><i class="ti ti-eye" aria-hidden="true"></i></button></div></div>
     <div class="campo"><label class="lbl" for="usu-nivel">Nível</label>
       <select class="form-input w-sm" id="usu-nivel" name="nivel">
@@ -64,10 +64,10 @@
       <div class="campo">
         <label class="lbl" for="redefinir-senha">Nova senha</label>
         <div class="campo-senha">
-          <input class="form-input" type="password" id="redefinir-senha" name="senha_nova" minlength="6" autocomplete="new-password" required>
+          <input class="form-input" type="password" id="redefinir-senha" name="senha_nova" minlength="{{ senha_minima }}" autocomplete="new-password" required>
           <button type="button" data-ver-senha="redefinir-senha" aria-label="Mostrar senha" aria-pressed="false"><i class="ti ti-eye" aria-hidden="true"></i></button>
         </div>
-        <span class="ajuda">Mínimo de 6 caracteres. Passe a senha para a pessoa por um canal seguro.</span>
+        <span class="ajuda">Mínimo de {{ senha_minima }} caracteres. Passe a senha para a pessoa por um canal seguro.</span>
       </div>
     </div>
     <div class="modal-rodape">

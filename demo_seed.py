@@ -112,7 +112,7 @@ def _status(dias):
 
 
 def _limpar(conn):
-    for t in ['documento_responsavel', 'historico', 'documentos', 'responsaveis',
+    for t in ['alerta_enviado', 'documento_responsavel', 'historico', 'documentos', 'responsaveis',
               'empresas', 'categorias', 'usuarios', 'configuracoes']:
         conn.execute(f'DELETE FROM {t}')
     # Recomeça a numeração, para que /empresa/1 seja sempre a mesma empresa

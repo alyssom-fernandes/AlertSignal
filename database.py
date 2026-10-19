@@ -14,6 +14,8 @@ def usar_banco(caminho):
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    # O SQLite só respeita os REFERENCES com esta opção, que vale por conexão
+    conn.execute('PRAGMA foreign_keys=ON')
     return conn
 
 def init_db():
@@ -75,6 +77,20 @@ def init_db():
         criado_em    TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
+    # Um registro por aviso enviado: documento, responsável, marco (antecipado,
+    # renovar, critico ou vencido), o vencimento a que o aviso se refere e o dia
+    # do envio. Com o vencimento na chave, um documento renovado volta a
+    # receber os marcos do novo prazo.
+    c.execute('''CREATE TABLE IF NOT EXISTS alerta_enviado (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        documento_id   INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+        responsavel_id INTEGER NOT NULL REFERENCES responsaveis(id) ON DELETE CASCADE,
+        marco          TEXT NOT NULL,
+        vencimento     TEXT NOT NULL,
+        data           TEXT NOT NULL,
+        UNIQUE (documento_id, responsavel_id, marco, vencimento, data)
+    )''')
+
     c.execute('''CREATE TABLE IF NOT EXISTS configuracoes (
         chave TEXT PRIMARY KEY,
         valor TEXT
@@ -86,6 +102,8 @@ def init_db():
         'ALTER TABLE documentos ADD COLUMN observacoes TEXT',
         'ALTER TABLE historico ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)',
         "ALTER TABLE historico ADD COLUMN criado_em TEXT DEFAULT (datetime('now','localtime'))",
+        # Sobe a cada troca de senha: sessões abertas com a versão anterior caem
+        'ALTER TABLE usuarios ADD COLUMN sessao_versao INTEGER NOT NULL DEFAULT 0',
     ]
     for m in migrations:
         try:

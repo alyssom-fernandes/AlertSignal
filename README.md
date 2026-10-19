@@ -4,9 +4,10 @@
 
 AlertSignal tracks the business licenses, permits and regulatory documents
 of a group of companies and emails the people in charge before anything
-expires. It replaced a spreadsheet kept by hand: it runs on one machine
-inside the company, with no cloud, and keeps everything in a single SQLite
-file. The interface is in Brazilian Portuguese.
+expires. It was built for a group of companies that kept these dates in a
+spreadsheet by hand. It is meant to run on one machine inside the company,
+with no cloud, and keeps everything in a single SQLite file. The interface
+is in Brazilian Portuguese.
 
 [![Tests](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
@@ -51,7 +52,7 @@ Captured from demo mode. The blue bar at the top of each screen says the data is
 
 ## Features
 
-- **Automated email alerts.** A daily check at a configurable time sends notices 90, 30 and 7 days before expiration, plus daily reminders for anything already expired. The email groups documents by urgency and includes a plain-text version.
+- **Automated email alerts.** A check runs every day at a configurable time. Each document gets one notice when it reaches 90, 30 and 7 days before expiration (all three thresholds are configurable) and one reminder a day once it has expired. Each notice goes out once to each person in charge: running the check twice on the same day repeats nothing; a document added inside a range, or a threshold passed on a day the check did not run, gets the most recent notice on the next run; and a renewed document starts over with its new date. A notice whose email fails is tried again the next day. The email groups documents by urgency and includes a plain-text version.
 - **Many companies and categories.** Each company has its own documents; categories group them by line of business.
 - **More than one assignee per document**, so no alert depends on a single person.
 - **Renew, edit and update protocol numbers on the company page**, with the history recording who did what.
@@ -98,7 +99,7 @@ The server listens on every network interface, so other computers on the company
 python -m unittest discover -s tests -v
 ```
 
-The same tests run on GitHub Actions on every push. They use demo mode on a temporary database and cover the pages, viewer permissions, CSRF protection, the sign-in lockout, security headers, exports (including spreadsheet formula injection) and the alert email.
+The same tests run on GitHub Actions on every push. They use demo mode on a temporary database and cover the pages, viewer permissions, CSRF protection, the sign-in lockout, security headers, sessions revoked when a user is deleted, deactivated or has the password reset, exports (including spreadsheet formula injection), the alert email, the alert rules on a fixed date (each threshold, no repeats, daily reminders after expiration, configurable thresholds) and the scheduler.
 
 ---
 
@@ -134,13 +135,13 @@ AlertSignal sends through Gmail with an App Password.
 
 **APScheduler over cron.** It runs inside the Flask process, works on Windows and lets the send time be changed from the settings page.
 
-**Plain SQL, no ORM.** Short, explicit, parameterized queries. With eight tables, an ORM would only add layers.
+**Plain SQL, no ORM.** Short, explicit, parameterized queries. With nine tables, an ORM would only add layers.
 
 **No front-end framework.** Modals use `<dialog>`; inline editing, filters and notices fit in a few functions. The chart is built with HTML and CSS and stays readable on a phone.
 
 **CSRF protection without a dependency.** A per-session token goes into every form and every data-changing `fetch`.
 
-**Security without extra packages.** Five wrong passwords for the same email lock sign-in for 15 minutes, every response carries security headers (CSP, X-Frame-Options, nosniff, Referrer-Policy), and exported text that starts with `=`, `+`, `-` or `@` stays text in Excel instead of becoming a formula.
+**Security without extra packages.** Every request reads the signed-in user from the database again, so a user who is deleted, deactivated or has the password reset is signed out on the next request. Five wrong passwords for the same email lock sign-in for 15 minutes, every response carries security headers (CSP, X-Frame-Options, nosniff, Referrer-Policy), and exported text that starts with `=`, `+`, `-` or `@` stays text in Excel instead of becoming a formula.
 
 ---
 
@@ -153,7 +154,7 @@ alertsignal/
 ├── notificacoes.py         # Alert rules and email sending
 ├── demo_seed.py            # Demo-mode fictitious data
 ├── importar_planilha.py    # One-time import of the old spreadsheet
-├── tests/test_rotas.py     # Tests (unittest)
+├── tests/                  # Tests (unittest): routes and security, alert rules and scheduler
 ├── .github/workflows/      # Tests on GitHub Actions on every push
 ├── docs/telas/             # Images for this README and the link preview
 ├── INICIAR.bat             # Starts the app on Windows
@@ -179,6 +180,7 @@ documentos            documents per company (type, protocol, expiration, status)
 responsaveis          people who receive alerts
 documento_responsavel who is in charge of each document
 historico             alerts sent and changes, with date and author
+alerta_enviado        notices already sent (document, person, threshold, expiration date, day)
 configuracoes         email, send time and alert thresholds
 ```
 
@@ -200,4 +202,4 @@ configuracoes         email, send time and alert thresholds
 
 ## Author
 
-Built by **Alyssom Fernandes**. A first Python project, made to solve a real operational problem and to show the whole stack: business rules, database design, scheduled jobs, email and interface.
+Built by **Alyssom Fernandes**. A first Python project, built for a group of companies that tracked these documents in a spreadsheet, and to show the whole stack: business rules, database design, scheduled jobs, email and interface.

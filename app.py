@@ -26,10 +26,14 @@ if MODO_DEMO:
 import database
 from database import get_connection, init_db, inserir_configuracoes_padrao, get_config, set_config
 from importar_planilha import importar, achar_planilha
-from notificacoes import executar_verificacao_diaria, calcular_dias, recalcular_status
+from notificacoes import executar_verificacao_diaria, calcular_dias, recalcular_status, atualizar_status
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
+if not os.environ.get('SECRET_KEY') and not MODO_DEMO:
+    # Sem chave fixa, cada reinício do servidor gera outra e derruba todas as sessões
+    print(' Aviso: SECRET_KEY vazia no .env. As sessões caem a cada reinício do servidor;'
+          ' defina uma chave longa e aleatória.', file=sys.stderr)
 # Cookie só por HTTPS quando o sistema estiver atrás de um (ALERTSIGNAL_HTTPS=1)
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
                   SESSION_COOKIE_SECURE=os.environ.get('ALERTSIGNAL_HTTPS') == '1')
@@ -42,6 +46,8 @@ TIPOS_DOC = [
 ]
 
 NIVEIS = {'admin': 'Administrador', 'visualizador': 'Visualizador'}
+
+SENHA_MINIMA = 8
 
 # Filtros de status do relatório e da exportação
 FILTROS_STATUS = {
@@ -74,8 +80,6 @@ app.jinja_env.globals['csrf_token'] = csrf_token
 def verificar_csrf():
     if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
         return
-    if MODO_DEMO and request.path == '/demo/reiniciar' and not request.headers.get('Origin'):
-        return   # ferramenta de fotos (sem navegador); formulários do navegador mandam o token
     enviado  = request.form.get('_csrf') or request.headers.get('X-CSRF-Token') or ''
     esperado = session.get('_csrf') or ''
     if esperado and hmac.compare_digest(enviado, esperado):
@@ -121,6 +125,7 @@ MAX_FALHAS_IP = 20
 JANELA_FALHAS = 15 * 60   # segundos
 _falhas = {}              # 'e:<email>' ou 'i:<ip>' -> instantes das falhas
 _trava_falhas = threading.Lock()
+_ultima_faxina = [0.0]    # quando _falhas foi varrido por inteiro pela última vez
 
 def _chaves_login(email):
     return ('e:' + email.lower(), MAX_FALHAS_EMAIL), ('i:' + (request.remote_addr or '?'), MAX_FALHAS_IP)
@@ -143,6 +148,12 @@ def _segundos_de_bloqueio(email):
 def _registrar_falha(email):
     agora = time.monotonic()
     with _trava_falhas:
+        # Cada e-mail digitado vira uma chave; sem a faxina, as que nunca mais
+        # são consultadas ficariam na memória para sempre
+        if agora - _ultima_faxina[0] >= 60:
+            for chave in [k for k, ts in _falhas.items() if not ts or agora - ts[-1] >= JANELA_FALHAS]:
+                del _falhas[chave]
+            _ultima_faxina[0] = agora
         for chave, _ in _chaves_login(email):
             _falhas.setdefault(chave, []).append(agora)
 
@@ -158,6 +169,40 @@ def texto_csv(valor):
     if isinstance(valor, str) and valor[:1] in ('=', '+', '-', '@', '\t', '\r'):
         return "'" + valor
     return valor
+
+# ─── USUÁRIO DA SESSÃO ────────────────────────────────────────────────────────
+# A sessão guarda só quem entrou. A cada pedido o usuário é relido do banco:
+# quem foi excluído, desativado ou teve a senha trocada (a versão da sessão
+# sobe) sai na hora, e o nível vale o que está no banco, não o do login.
+
+ROTAS_SEM_USUARIO = {'static', 'favicon', 'login', 'logout', 'index', 'demo_entrar', 'demo_reiniciar'}
+
+def _iniciar_sessao(u):
+    session.clear()
+    session['usuario_id']    = u['id']
+    session['usuario_nome']  = u['nome']
+    session['usuario_nivel'] = u['nivel']
+    session['sessao_versao'] = u['sessao_versao']
+
+@app.before_request
+def revalidar_usuario():
+    if 'usuario_id' not in session or request.endpoint == 'static':
+        return
+    conn = get_connection()
+    u = conn.execute('SELECT id, nome, nivel, sessao_versao FROM usuarios WHERE id=? AND ativo=1',
+                     (session['usuario_id'],)).fetchone()
+    conn.close()
+    if u and u['sessao_versao'] == session.get('sessao_versao', 0):
+        session['usuario_nome']  = u['nome']
+        session['usuario_nivel'] = u['nivel']
+        return
+    session.clear()
+    if request.endpoint in ROTAS_SEM_USUARIO:
+        return
+    if _eh_api():
+        return jsonify({'ok': False, 'erro': 'Entre de novo para continuar.'}), 401
+    flash('Sua sessão terminou. Entre de novo.', 'erro')
+    return redirect(url_for('login'))
 
 # ─── DECORADORES ──────────────────────────────────────────────────────────────
 
@@ -204,7 +249,7 @@ def criar_admin_padrao():
         email = (os.environ.get('ADMIN_EMAIL') or 'admin@example.com').strip().lower()
         senha = os.environ.get('ADMIN_SENHA') or ''
         gerada = None
-        if len(senha) < 6:
+        if len(senha) < SENHA_MINIMA:
             senha = gerada = secrets.token_urlsafe(12)
         conn.execute('INSERT INTO usuarios (nome, email, senha, nivel) VALUES (?,?,?,?)',
                      ('Administrador', email, generate_password_hash(senha), 'admin'))
@@ -227,14 +272,20 @@ def dados_documento(conn, doc_id):
                            FROM documentos d JOIN empresas e ON e.id=d.empresa_id
                            WHERE d.id=?''', (doc_id,)).fetchone()
 
+# O status gravado só muda com a virada do dia, com o prazo de renovar das
+# configurações ou ao editar e renovar (que já gravam o status novo). Então as
+# páginas não precisam varrer e regravar a tabela a cada visita: basta uma vez
+# por dia, por banco e por prazo. A verificação diária também atualiza.
+_status_conferido = {}
+_trava_status = threading.Lock()
+
 def recalcular_todos(conn):
-    docs = conn.execute('SELECT id, vencimento, status FROM documentos').fetchall()
-    limite = int(get_config('alerta_dias_30') or 30)
-    for doc in docs:
-        novo = recalcular_status(calcular_dias(doc['vencimento']), limite)
-        if novo != doc['status']:
-            conn.execute('UPDATE documentos SET status=? WHERE id=?', (novo, doc['id']))
-    conn.commit()
+    chave = (database.DB_PATH, date.today(), get_config('alerta_dias_30'))
+    with _trava_status:
+        if _status_conferido.get('chave') == chave:
+            return
+        atualizar_status(conn)
+        _status_conferido['chave'] = chave
 
 def get_stats(conn):
     rows = conn.execute('''SELECT d.status, COUNT(*) AS total FROM documentos d
@@ -329,7 +380,7 @@ def inject_globals():
     except (TypeError, ValueError):
         limite_renovar = 30
     return {'now': datetime.now(), 'urgentes_count': urgentes_count, 'modo_demo': MODO_DEMO,
-            'limite_renovar': limite_renovar,
+            'limite_renovar': limite_renovar, 'senha_minima': SENHA_MINIMA,
             'eh_admin': session.get('usuario_nivel') == 'admin', 'niveis': NIVEIS}
 
 # ─── FILTROS JINJA ────────────────────────────────────────────────────────────
@@ -440,10 +491,7 @@ def login():
         conn.close()
         if u and check_password_hash(u['senha'], senha):
             _limpar_falhas(email)
-            session.clear()
-            session['usuario_id']    = u['id']
-            session['usuario_nome']  = u['nome']
-            session['usuario_nivel'] = u['nivel']
+            _iniciar_sessao(u)
             return redirect(url_for('dashboard'))
         _registrar_falha(email)
         erro = 'E-mail ou senha incorretos.'
@@ -466,10 +514,7 @@ def demo_entrar():
     u = conn.execute('SELECT * FROM usuarios WHERE email=?', (email,)).fetchone()
     conn.close()
     if not u: abort(404)
-    session.clear()
-    session['usuario_id']    = u['id']
-    session['usuario_nome']  = u['nome']
-    session['usuario_nivel'] = u['nivel']
+    _iniciar_sessao(u)
     return redirect(url_for('dashboard'))
 
 @app.route('/demo/email')
@@ -525,13 +570,18 @@ def perfil():
             conf  = request.form.get('senha_conf','')
             if not check_password_hash(u['senha'], atual):
                 erro = 'Senha atual incorreta.'
-            elif len(nova) < 6:
-                erro = 'A nova senha precisa ter pelo menos 6 caracteres.'
+            elif len(nova) < SENHA_MINIMA:
+                erro = f'A nova senha precisa ter pelo menos {SENHA_MINIMA} caracteres.'
             elif nova != conf:
                 erro = 'As senhas não coincidem.'
             else:
-                conn.execute('UPDATE usuarios SET senha=? WHERE id=?', (generate_password_hash(nova), session['usuario_id']))
+                # A versão nova derruba as outras sessões abertas com a senha antiga;
+                # esta continua, com a versão atualizada
+                conn.execute('UPDATE usuarios SET senha=?, sessao_versao=sessao_versao+1 WHERE id=?',
+                             (generate_password_hash(nova), session['usuario_id']))
                 conn.commit()
+                session['sessao_versao'] = conn.execute('SELECT sessao_versao FROM usuarios WHERE id=?',
+                                                        (session['usuario_id'],)).fetchone()[0]
                 ok = 'Senha alterada com sucesso.'
         u = conn.execute('SELECT * FROM usuarios WHERE id=?', (session['usuario_id'],)).fetchone()
     conn.close()
@@ -771,6 +821,8 @@ def empresa_excluir(emp_id):
     if total > 0:
         conn.close(); flash('Não é possível excluir uma empresa com documentos. Inative-a.', 'erro')
         return redirect(request.referrer or url_for('cadastros'))
+    # O histórico fica; só perde o vínculo com a empresa que deixa de existir
+    conn.execute('UPDATE historico SET empresa_id=NULL WHERE empresa_id=?', (emp_id,))
     conn.execute('DELETE FROM empresas WHERE id=?', (emp_id,))
     registrar_historico(conn, f'Empresa excluída: {nome}')
     conn.commit(); conn.close()
@@ -921,8 +973,8 @@ def usuario_novo():
     if not nome or not email:
         flash('Informe o nome e o e-mail.','erro')
         return redirect(url_for('usuarios'))
-    if len(senha) < 6:
-        flash('A senha precisa ter pelo menos 6 caracteres.','erro')
+    if len(senha) < SENHA_MINIMA:
+        flash(f'A senha precisa ter pelo menos {SENHA_MINIMA} caracteres.','erro')
         return redirect(url_for('usuarios'))
     conn = get_connection()
     if conn.execute('SELECT 1 FROM usuarios WHERE lower(email)=?', (email,)).fetchone():
@@ -946,6 +998,7 @@ def usuario_excluir(uid):
     conn = get_connection()
     r = conn.execute('SELECT nome FROM usuarios WHERE id=?', (uid,)).fetchone()
     if not r: conn.close(); abort(404)
+    conn.execute('UPDATE historico SET usuario_id=NULL WHERE usuario_id=?', (uid,))
     conn.execute('DELETE FROM usuarios WHERE id=?', (uid,))
     conn.commit(); conn.close()
     flash(f'{r["nome"]} não tem mais acesso.','ok')
@@ -955,14 +1008,19 @@ def usuario_excluir(uid):
 @admin_obrigatorio
 def usuario_redefinir_senha(uid):
     nova = request.form.get('senha_nova','')
-    if len(nova) < 6:
-        flash('A senha precisa ter pelo menos 6 caracteres.','erro')
+    if len(nova) < SENHA_MINIMA:
+        flash(f'A senha precisa ter pelo menos {SENHA_MINIMA} caracteres.','erro')
         return redirect(url_for('usuarios'))
     conn = get_connection()
     r = conn.execute('SELECT nome FROM usuarios WHERE id=?', (uid,)).fetchone()
     if not r: conn.close(); abort(404)
-    conn.execute('UPDATE usuarios SET senha=? WHERE id=?', (generate_password_hash(nova), uid))
-    conn.commit(); conn.close()
+    # Quem estava conectado com a senha antiga precisa entrar de novo
+    conn.execute('UPDATE usuarios SET senha=?, sessao_versao=sessao_versao+1 WHERE id=?',
+                 (generate_password_hash(nova), uid))
+    conn.commit()
+    if uid == session.get('usuario_id'):
+        session['sessao_versao'] = conn.execute('SELECT sessao_versao FROM usuarios WHERE id=?', (uid,)).fetchone()[0]
+    conn.close()
     flash(f'Senha de {r["nome"]} redefinida.','ok')
     return redirect(url_for('usuarios'))
 
@@ -1128,6 +1186,8 @@ def excluir_documento(doc_id):
     if not doc:
         conn.close(); return jsonify({'ok': False, 'erro': 'Documento não encontrado.'}), 404
     conn.execute('DELETE FROM documento_responsavel WHERE documento_id=?', (doc_id,))
+    conn.execute('DELETE FROM alerta_enviado WHERE documento_id=?', (doc_id,))
+    conn.execute('UPDATE historico SET documento_id=NULL WHERE documento_id=?', (doc_id,))
     conn.execute('DELETE FROM documentos WHERE id=?', (doc_id,))
     registrar_historico(conn, f'Documento "{doc["tipo"]}" excluído: {doc["empresa"]}', empresa_id=doc['empresa_id'])
     conn.commit(); conn.close()
