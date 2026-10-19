@@ -14,6 +14,8 @@ def usar_banco(caminho):
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    # O SQLite só respeita os REFERENCES com esta opção, que vale por conexão
+    conn.execute('PRAGMA foreign_keys=ON')
     return conn
 
 def init_db():
@@ -86,6 +88,8 @@ def init_db():
         'ALTER TABLE documentos ADD COLUMN observacoes TEXT',
         'ALTER TABLE historico ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)',
         "ALTER TABLE historico ADD COLUMN criado_em TEXT DEFAULT (datetime('now','localtime'))",
+        # Sobe a cada troca de senha: sessões abertas com a versão anterior caem
+        'ALTER TABLE usuarios ADD COLUMN sessao_versao INTEGER NOT NULL DEFAULT 0',
     ]
     for m in migrations:
         try:

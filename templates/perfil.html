@@ -35,7 +35,7 @@
 
   <section class="cartao" aria-labelledby="perfil-senha">
     <h2 id="perfil-senha"><i class="ti ti-lock" aria-hidden="true"></i> Alterar senha</h2>
-    <p class="descr">Use pelo menos 6 caracteres.</p>
+    <p class="descr">Use pelo menos {{ senha_minima }} caracteres.</p>
     <form method="POST" action="{{ url_for('perfil') }}" class="pilha-form">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <input type="hidden" name="acao" value="senha">
@@ -52,14 +52,14 @@
       <div class="campo">
         <label class="lbl" for="senha-nova">Nova senha</label>
         <div class="campo-senha">
-          <input class="form-input" id="senha-nova" type="password" name="senha_nova" minlength="6" autocomplete="new-password" required>
+          <input class="form-input" id="senha-nova" type="password" name="senha_nova" minlength="{{ senha_minima }}" autocomplete="new-password" required>
           <button type="button" data-ver-senha="senha-nova" aria-label="Mostrar senha" aria-pressed="false"><i class="ti ti-eye" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="campo">
         <label class="lbl" for="senha-conf">Repita a nova senha</label>
         <div class="campo-senha">
-          <input class="form-input" id="senha-conf" type="password" name="senha_conf" minlength="6" autocomplete="new-password" required>
+          <input class="form-input" id="senha-conf" type="password" name="senha_conf" minlength="{{ senha_minima }}" autocomplete="new-password" required>
           <button type="button" data-ver-senha="senha-conf" aria-label="Mostrar senha" aria-pressed="false"><i class="ti ti-eye" aria-hidden="true"></i></button>
         </div>
       </div>

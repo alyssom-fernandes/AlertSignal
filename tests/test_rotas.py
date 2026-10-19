@@ -144,11 +144,11 @@ class TestRegrasDaConferencia(Base):
     """Defeitos apontados na revisão de código final, para não voltarem."""
 
     def test_login_ignora_maiusculas(self):
-        self.c.post('/usuarios/novo', data={'nome': 'Maria', 'email': 'Maria.Silva@Empresa.com', 'senha': 'abcdef',
+        self.c.post('/usuarios/novo', data={'nome': 'Maria', 'email': 'Maria.Silva@Empresa.com', 'senha': 'abcdefgh',
                                             'nivel': 'visualizador', '_csrf': self.csrf})
         c2 = aplicacao.app.test_client()
         tok = token(c2.get('/login').get_data(as_text=True))
-        r = c2.post('/login', data={'email': 'Maria.Silva@Empresa.com', 'senha': 'abcdef', '_csrf': tok})
+        r = c2.post('/login', data={'email': 'Maria.Silva@Empresa.com', 'senha': 'abcdefgh', '_csrf': tok})
         self.assertEqual(r.status_code, 302)
 
     def test_empresa_inativa_nao_gera_alerta(self):
@@ -318,6 +318,173 @@ class TestVisualizador(Base):
             with self.subTest(url=url):
                 self.assertEqual(self.post_json(url, {'vencimento': '2099-01-01'}, metodo).status_code, 403)
         self.assertEqual(self.c.get('/usuarios').status_code, 302)
+
+
+
+def integridade_ok(teste):
+    """Nenhuma referência quebrada no banco (PRAGMA foreign_key_check vazio)."""
+    conn = database.get_connection()
+    problemas = conn.execute('PRAGMA foreign_key_check').fetchall()
+    conn.close()
+    teste.assertEqual([tuple(p) for p in problemas], [])
+
+
+class TestIntegridade(Base):
+    """Chaves estrangeiras ligadas, senha mínima e CSRF em toda rota de escrita."""
+
+    def test_chaves_estrangeiras_ligadas(self):
+        conn = database.get_connection()
+        self.assertEqual(conn.execute('PRAGMA foreign_keys').fetchone()[0], 1)
+        conn.close()
+        integridade_ok(self)
+
+    def test_excluir_empresa_com_historico(self):
+        self.c.post('/empresa/nova', data={'nome': 'Empresa Teste', 'categoria_id': 1, '_csrf': self.csrf})
+        conn = database.get_connection()
+        emp_id = conn.execute("SELECT id FROM empresas WHERE nome='Empresa Teste'").fetchone()[0]
+        conn.close()
+        r = self.c.post(f'/empresa/{emp_id}/excluir', data={'_csrf': self.csrf})
+        self.assertEqual(r.status_code, 302)
+        conn = database.get_connection()
+        self.assertIsNone(conn.execute('SELECT 1 FROM empresas WHERE id=?', (emp_id,)).fetchone())
+        self.assertIsNotNone(conn.execute(
+            "SELECT 1 FROM historico WHERE descricao='Empresa cadastrada: Empresa Teste'").fetchone())
+        conn.close()
+        integridade_ok(self)
+
+    def test_excluir_documento_com_historico(self):
+        self.post_json('/api/doc/1/protocolo', {'protocolo': 'P-1'})
+        self.assertTrue(self.post_json('/api/doc/1/excluir', metodo='DELETE').get_json()['ok'])
+        integridade_ok(self)
+
+    def test_excluir_usuario_com_historico(self):
+        conn = database.get_connection()
+        conn.execute("INSERT INTO historico (tipo, descricao, usuario_id) VALUES ('tramite', 'feito pela Marina', 2)")
+        conn.commit()
+        conn.close()
+        self.assertEqual(self.c.post('/usuarios/2/excluir', data={'_csrf': self.csrf}).status_code, 302)
+        conn = database.get_connection()
+        self.assertIsNone(conn.execute('SELECT 1 FROM usuarios WHERE id=2').fetchone())
+        conn.close()
+        integridade_ok(self)
+
+    def test_senha_curta_e_recusada(self):
+        self.c.post('/usuarios/novo', data={'nome': 'Curta', 'email': 'curta@example.com', 'senha': '1234567',
+                                            'nivel': 'visualizador', '_csrf': self.csrf})
+        self.c.post('/usuarios/2/redefinir-senha', data={'senha_nova': '1234567', '_csrf': self.csrf})
+        conn = database.get_connection()
+        self.assertIsNone(conn.execute("SELECT 1 FROM usuarios WHERE email='curta@example.com'").fetchone())
+        senha_b = conn.execute('SELECT senha FROM usuarios WHERE id=2').fetchone()[0]
+        conn.close()
+        self.assertFalse(check_password_hash(senha_b, '1234567'))
+        self.assertIn('minlength="8"', self.c.get('/perfil').get_data(as_text=True))
+
+    def test_reiniciar_demo_exige_token(self):
+        self.post_json('/api/doc/1/protocolo', {'protocolo': 'MARCA'})
+        self.c.post('/demo/reiniciar', data={'cenario': 'vazio'})       # sem _csrf e sem Origin
+        conn = database.get_connection()
+        self.assertEqual(conn.execute('SELECT protocolo FROM documentos WHERE id=1').fetchone()[0], 'MARCA')
+        conn.close()
+
+    def test_faxina_das_falhas_antigas(self):
+        aplicacao._falhas.clear()
+        antigo = aplicacao.time.monotonic() - aplicacao.JANELA_FALHAS - 1
+        aplicacao._falhas['e:sumiu@example.com'] = [antigo]
+        aplicacao._ultima_faxina[0] = antigo
+        try:
+            with aplicacao.app.test_request_context('/login', method='POST'):
+                aplicacao._registrar_falha('outro@example.com')
+            self.assertNotIn('e:sumiu@example.com', aplicacao._falhas)
+            self.assertIn('e:outro@example.com', aplicacao._falhas)
+        finally:
+            aplicacao._falhas.clear()
+
+
+class TestSessaoRevalidada(Base):
+    """A sessão vale o que o banco diz agora, não o que dizia no login."""
+
+    def entrar_como(self, email, senha):
+        cliente = aplicacao.app.test_client()
+        tok = token(cliente.get('/login').get_data(as_text=True))
+        r = cliente.post('/login', data={'email': email, 'senha': senha, '_csrf': tok})
+        self.assertEqual(r.status_code, 302)
+        return cliente, token(cliente.get('/perfil').get_data(as_text=True))
+
+    def criar_admin_b(self):
+        self.c.post('/usuarios/novo', data={'nome': 'Admin B', 'email': 'admin.b@example.com', 'senha': 'senha-do-b',
+                                            'nivel': 'admin', '_csrf': self.csrf})
+        conn = database.get_connection()
+        uid = conn.execute("SELECT id FROM usuarios WHERE email='admin.b@example.com'").fetchone()[0]
+        conn.close()
+        return uid
+
+    def test_usuario_excluido_perde_o_acesso(self):
+        # O caso da avaliação: o admin A exclui o admin B, que estava conectado
+        uid = self.criar_admin_b()
+        b, tok_b = self.entrar_como('admin.b@example.com', 'senha-do-b')
+        self.assertEqual(b.get('/usuarios').status_code, 200)
+        self.assertEqual(self.c.post(f'/usuarios/{uid}/excluir', data={'_csrf': self.csrf}).status_code, 302)
+        r = b.get('/usuarios')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/login', r.headers['Location'])
+        self.assertEqual(b.get('/configuracoes').status_code, 302)
+        b.post('/categoria/nova', data={'nome': 'Criada por excluido', '_csrf': tok_b})
+        r = b.post('/api/doc/1/protocolo', json={'protocolo': 'X'}, headers={'X-CSRF-Token': tok_b})
+        self.assertIn(r.status_code, (400, 401))
+        conn = database.get_connection()
+        self.assertIsNone(conn.execute("SELECT 1 FROM categorias WHERE nome='Criada por excluido'").fetchone())
+        self.assertNotEqual(conn.execute('SELECT protocolo FROM documentos WHERE id=1').fetchone()[0], 'X')
+        conn.close()
+
+    def test_api_responde_401_para_sessao_revogada(self):
+        uid = self.criar_admin_b()
+        b, tok_b = self.entrar_como('admin.b@example.com', 'senha-do-b')
+        conn = database.get_connection()
+        conn.execute('UPDATE usuarios SET ativo=0 WHERE id=?', (uid,))
+        conn.commit()
+        conn.close()
+        # o token CSRF continua válido; quem barra é a revalidação do usuário
+        r = b.post('/api/doc/1/protocolo', json={'protocolo': 'X'}, headers={'X-CSRF-Token': tok_b})
+        self.assertEqual(r.status_code, 401)
+
+    def test_usuario_desativado_perde_o_acesso(self):
+        uid = self.criar_admin_b()
+        b, _ = self.entrar_como('admin.b@example.com', 'senha-do-b')
+        conn = database.get_connection()
+        conn.execute('UPDATE usuarios SET ativo=0 WHERE id=?', (uid,))
+        conn.commit()
+        conn.close()
+        self.assertEqual(b.get('/dashboard').status_code, 302)
+
+    def test_nivel_vem_do_banco(self):
+        uid = self.criar_admin_b()
+        b, tok_b = self.entrar_como('admin.b@example.com', 'senha-do-b')
+        conn = database.get_connection()
+        conn.execute("UPDATE usuarios SET nivel='visualizador' WHERE id=?", (uid,))
+        conn.commit()
+        conn.close()
+        self.assertEqual(b.get('/usuarios').status_code, 302)          # volta para a visão geral
+        self.assertEqual(b.get('/dashboard').status_code, 200)         # continua podendo consultar
+        r = b.post('/api/doc/1/protocolo', json={'protocolo': 'X'}, headers={'X-CSRF-Token': tok_b})
+        self.assertEqual(r.status_code, 403)
+
+    def test_redefinir_senha_derruba_sessoes_antigas(self):
+        uid = self.criar_admin_b()
+        b, _ = self.entrar_como('admin.b@example.com', 'senha-do-b')
+        self.c.post(f'/usuarios/{uid}/redefinir-senha', data={'senha_nova': 'senha-nova-b', '_csrf': self.csrf})
+        self.assertEqual(b.get('/dashboard').status_code, 302)
+        self.assertEqual(self.c.get('/usuarios').status_code, 200)     # quem redefiniu continua
+        self.entrar_como('admin.b@example.com', 'senha-nova-b')
+
+    def test_trocar_a_propria_senha_mantem_esta_sessao(self):
+        self.criar_admin_b()
+        b1, tok1 = self.entrar_como('admin.b@example.com', 'senha-do-b')
+        b2, _ = self.entrar_como('admin.b@example.com', 'senha-do-b')
+        r = b1.post('/perfil', data={'acao': 'senha', 'senha_atual': 'senha-do-b', 'senha_nova': 'outra-senha-b',
+                                     'senha_conf': 'outra-senha-b', '_csrf': tok1})
+        self.assertIn('Senha alterada', r.get_data(as_text=True))
+        self.assertEqual(b1.get('/dashboard').status_code, 200)
+        self.assertEqual(b2.get('/dashboard').status_code, 302)
 
 
 if __name__ == '__main__':
