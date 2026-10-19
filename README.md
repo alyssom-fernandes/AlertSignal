@@ -4,9 +4,10 @@
 
 AlertSignal tracks the business licenses, permits and regulatory documents
 of a group of companies and emails the people in charge before anything
-expires. It replaced a spreadsheet kept by hand: it runs on one machine
-inside the company, with no cloud, and keeps everything in a single SQLite
-file. The interface is in Brazilian Portuguese.
+expires. It was built for a group of companies that kept these dates in a
+spreadsheet by hand. It is meant to run on one machine inside the company,
+with no cloud, and keeps everything in a single SQLite file. The interface
+is in Brazilian Portuguese.
 
 [![Tests](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
@@ -201,4 +202,4 @@ configuracoes         email, send time and alert thresholds
 
 ## Author
 
-Built by **Alyssom Fernandes**. A first Python project, made to solve a real operational problem and to show the whole stack: business rules, database design, scheduled jobs, email and interface.
+Built by **Alyssom Fernandes**. A first Python project, built for a group of companies that tracked these documents in a spreadsheet, and to show the whole stack: business rules, database design, scheduled jobs, email and interface.

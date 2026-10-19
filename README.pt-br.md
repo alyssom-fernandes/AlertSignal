@@ -4,8 +4,9 @@
 
 O AlertSignal acompanha os alvarás, licenças e documentos regulatórios de um
 grupo de empresas e avisa os responsáveis por e-mail antes que algum vença.
-Ele substituiu uma planilha mantida à mão: roda numa máquina da empresa, sem
-nuvem, e guarda tudo num único arquivo SQLite.
+Foi feito para um grupo de empresas que controlava essas datas numa planilha
+mantida à mão. É pensado para rodar numa máquina da empresa, sem nuvem, e
+guarda tudo num único arquivo SQLite.
 
 [![Testes](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/AlertSignal/actions/workflows/testes.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
@@ -200,4 +201,4 @@ configuracoes         e-mail, horário e prazos dos alertas
 
 ## Autor
 
-Desenvolvido por **Alyssom Fernandes**. Primeiro projeto em Python, feito para resolver um problema real de operação e mostrar o trabalho de ponta a ponta: regras de negócio, banco de dados, tarefas agendadas, e-mail e interface.
+Desenvolvido por **Alyssom Fernandes**. Primeiro projeto em Python, feito para um grupo de empresas que controlava esses documentos numa planilha e para mostrar o trabalho de ponta a ponta: regras de negócio, banco de dados, tarefas agendadas, e-mail e interface.
