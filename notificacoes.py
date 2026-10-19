@@ -42,6 +42,18 @@ def recalcular_status(dias, limite_renovar=None):
     return 'OK'
 
 
+def atualizar_status(conn, hoje=None):
+    """Regrava o status de cada documento conforme a data de hoje e o prazo de
+    renovar das configurações. Só escreve nas linhas cujo status mudou."""
+    hoje = hoje or date.today()
+    limite = _config_inteira('alerta_dias_30', 30)
+    for doc in conn.execute('SELECT id, vencimento, status FROM documentos').fetchall():
+        novo = recalcular_status(calcular_dias(doc['vencimento'], hoje), limite)
+        if novo != doc['status']:
+            conn.execute('UPDATE documentos SET status=? WHERE id=?', (novo, doc['id']))
+    conn.commit()
+
+
 def _config_inteira(chave, padrao):
     try:
         return int(get_config(chave) or padrao)
@@ -377,6 +389,9 @@ def executar_verificacao_diaria(hoje=None):
     hoje = hoje or date.today()
     print(f"[{datetime.now().strftime('%H:%M')}] Verificando vencimentos...")
 
+    conn = get_connection()
+    atualizar_status(conn, hoje)
+    conn.close()
     limpar_envios_antigos(hoje)
     alertas = buscar_alertas(hoje)
     if not alertas:

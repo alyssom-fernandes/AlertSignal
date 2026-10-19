@@ -26,7 +26,7 @@ if MODO_DEMO:
 import database
 from database import get_connection, init_db, inserir_configuracoes_padrao, get_config, set_config
 from importar_planilha import importar, achar_planilha
-from notificacoes import executar_verificacao_diaria, calcular_dias, recalcular_status
+from notificacoes import executar_verificacao_diaria, calcular_dias, recalcular_status, atualizar_status
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
@@ -272,14 +272,20 @@ def dados_documento(conn, doc_id):
                            FROM documentos d JOIN empresas e ON e.id=d.empresa_id
                            WHERE d.id=?''', (doc_id,)).fetchone()
 
+# O status gravado só muda com a virada do dia, com o prazo de renovar das
+# configurações ou ao editar e renovar (que já gravam o status novo). Então as
+# páginas não precisam varrer e regravar a tabela a cada visita: basta uma vez
+# por dia, por banco e por prazo. A verificação diária também atualiza.
+_status_conferido = {}
+_trava_status = threading.Lock()
+
 def recalcular_todos(conn):
-    docs = conn.execute('SELECT id, vencimento, status FROM documentos').fetchall()
-    limite = int(get_config('alerta_dias_30') or 30)
-    for doc in docs:
-        novo = recalcular_status(calcular_dias(doc['vencimento']), limite)
-        if novo != doc['status']:
-            conn.execute('UPDATE documentos SET status=? WHERE id=?', (novo, doc['id']))
-    conn.commit()
+    chave = (database.DB_PATH, date.today(), get_config('alerta_dias_30'))
+    with _trava_status:
+        if _status_conferido.get('chave') == chave:
+            return
+        atualizar_status(conn)
+        _status_conferido['chave'] = chave
 
 def get_stats(conn):
     rows = conn.execute('''SELECT d.status, COUNT(*) AS total FROM documentos d

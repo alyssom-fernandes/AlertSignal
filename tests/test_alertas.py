@@ -269,5 +269,56 @@ class TestAgendador(Base):
         self.assertEqual(notificacoes.faixas_de_alerta()['antecipado'], 120)
 
 
+
+class TestStatusDoDia(Cenario):
+    """O status gravado é atualizado pela verificação diária, sem depender das páginas."""
+
+    def status(self, doc):
+        conn = database.get_connection()
+        valor = conn.execute('SELECT status FROM documentos WHERE id=?', (doc,)).fetchone()[0]
+        conn.close()
+        return valor
+
+    def test_verificacao_diaria_atualiza_o_status(self):
+        doc = self.documento(31)
+        conn = database.get_connection()
+        conn.execute("UPDATE documentos SET status='OK' WHERE id=?", (doc,))
+        conn.commit()
+        conn.close()
+        self.rodar(HOJE)
+        self.assertEqual(self.status(doc), 'OK')
+        self.rodar(HOJE + timedelta(days=1))           # faltam 30 dias
+        self.assertEqual(self.status(doc), 'RENOVAR')
+        self.rodar(HOJE + timedelta(days=32))          # venceu ontem
+        self.assertEqual(self.status(doc), 'VENCIDO')
+
+
+class TestStatusNasPaginas(Base):
+    """As páginas regravam o status uma vez por dia, ou quando o prazo de renovar muda."""
+
+    def setUp(self):
+        super().setUp()
+        aplicacao._status_conferido.clear()
+
+    def test_uma_varredura_por_dia(self):
+        with mock.patch.object(aplicacao, 'atualizar_status', wraps=notificacoes.atualizar_status) as varrer:
+            for url in ['/dashboard', '/empresas', '/relatorio', '/empresa/1']:
+                self.assertEqual(self.c.get(url).status_code, 200)
+        self.assertEqual(varrer.call_count, 1)
+
+    def test_mudar_o_prazo_de_renovar_atualiza_o_status(self):
+        venc = (date.today() + timedelta(days=40)).isoformat()
+        conn = database.get_connection()
+        conn.execute("UPDATE documentos SET vencimento=?, status='OK' WHERE id=1", (venc,))
+        conn.commit()
+        conn.close()
+        self.c.get('/dashboard')
+        database.set_config('alerta_dias_30', '45')
+        self.c.get('/dashboard')
+        conn = database.get_connection()
+        self.assertEqual(conn.execute('SELECT status FROM documentos WHERE id=1').fetchone()[0], 'RENOVAR')
+        conn.close()
+
+
 if __name__ == '__main__':
     unittest.main()
