@@ -1,0 +1,14 @@
+version: 2
+# Só as ações do GitHub Actions: minor e patch chegam agrupados num PR por mês;
+# versões maiores ficam de fora e são atualizadas à mão, depois de ler as notas.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      menores:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
