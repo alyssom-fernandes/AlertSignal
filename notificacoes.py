@@ -10,7 +10,7 @@ import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from database import get_connection, get_config
 
 
