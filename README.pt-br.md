@@ -17,6 +17,8 @@ guarda tudo num único arquivo SQLite.
 
 Este README também está em [inglês](README.md).
 
+**Estudo de caso:** [como foi construído e por quê, com links para o código](https://alyssom-fernandes.github.io/portfolio/projetos/alertsignal/) no meu portfólio.
+
 ## Em 30 segundos
 
 1. Rode a demonstração, com dados fictícios e sem enviar nenhum e-mail:
